@@ -1,0 +1,72 @@
+notes_23-01-06
+
+
+
+forward propagation
+
+use that formula TanH? i think
+
+
+* tell dave to get github desktop
+* tell dave to get vscode
+
+
+project structure:
+-------------------
+
+* folder > network classes code
+* folder > data
+* folder > data manipulation code
+* folder > save states
+* file   > run it
+
+.git_ignore
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+end
