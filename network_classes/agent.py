@@ -47,21 +47,21 @@ class Agent:
 
         # Species Creation Info
         # ----------------------
-        self.starting_layers      = 1
-        self.starting_connections = 3
+        self.starting_layers      = 3
+        self.starting_connections = 4
 
-        self.bias_range   = 1
-        self.weight_range = 1
+        self.bias_range   = 1.0
+        self.weight_range = 1.0
 
 
         # Species Mutation Info
         # ----------------------
-        self.bias_mutation_range   = self.bias_range   / 2
-        self.weight_mutation_range = self.weight_range / 2
+        self.bias_mutation_range   = self.bias_range   / 2.0
+        self.weight_mutation_range = self.weight_range / 2.0
 
-        self.bias_mutation_chance   = 0.50
-        self.weight_mutation_chance = 0.50
-        self.mut_connection_chance  = 0.10
+        self.bias_mutation_chance   = 0.80
+        self.weight_mutation_chance = 0.80
+        self.mut_connection_chance  = 0.30
 
 
 
@@ -95,11 +95,11 @@ class Agent:
             for neuron in self.layers[i]:
                 for j in range(self.starting_connections):
                     self.new_connection(neuron, (i+1,i+1))
-
+                    #self.new_connection(neuron, (i+1,len(self.layers)-1))
 
         # add connections to the final neuron
         for neuron in self.layers[-2]:
-            neuron.sending.append( ((-1,0), 1) )
+            neuron.sending.append( ((-1,0), 1.0) )
 
 
 
@@ -202,11 +202,11 @@ class Agent:
                     neuron.bias += random.uniform(-self.bias_mutation_range, self.bias_mutation_range)
 
                     # limit the max/min?
-                    if neuron.bias > 1: 
-                        neuron.bias = 1.0
+                    #if neuron.bias > 1: 
+                        #neuron.bias = 1.0
 
-                    elif neuron.bias < -1: 
-                        neuron.bias = -1.0
+                    #elif neuron.bias < -1: 
+                        #neuron.bias = -1.0
 
 
                 # add/del connection
@@ -214,7 +214,8 @@ class Agent:
                 if self.mut_connection_chance > random.uniform(0, 1):
                     # 50/50 to add or delete
                     if 0.5 > random.uniform(0, 1):
-                        self.new_connection(neuron, (i+1,i+1))
+                        #self.new_connection(neuron, (i+1,i+1))
+                        self.new_connection(neuron, (i+1,len(self.layers)-1))
                     else:
                         self.del_connection(neuron)
 
@@ -227,11 +228,11 @@ class Agent:
                         connection[1] += random.uniform(-self.weight_mutation_range, self.weight_mutation_range)
                         
                         # limit the max/min?
-                        if connection[1] > 1: 
-                            connection[1] = 1.0
+                        #if connection[1] > 1: 
+                            #connection[1] = 1.0
 
-                        elif connection[1] < -1: 
-                            connection[1] = -1.0
+                        #elif connection[1] < -1: 
+                            #connection[1] = -1.0
 
 
         # second to last layer just mutate the bias
@@ -243,11 +244,11 @@ class Agent:
                 neuron.bias += random.uniform(-self.bias_mutation_range, self.bias_mutation_range)
 
                 # limit the max/min?
-                if neuron.bias > 1: 
-                    neuron.bias = 1.0
+                #if neuron.bias > 1: 
+                    #neuron.bias = 1.0
 
-                elif neuron.bias < -1: 
-                    neuron.bias = -1.0
+                #elif neuron.bias < -1: 
+                    #neuron.bias = -1.0
 
 
 

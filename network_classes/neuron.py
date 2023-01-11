@@ -22,11 +22,15 @@ class Neuron:
         # * example: ( (1,1), 0.5 )
         self.sending        = []
 
+        # statistics
+        #self.connections_to = 0
+
 
     # activation functions
     # ---------------------
 
     # tanh activation function
+    # -------------------------
     def tanh(self, x):
         return (exp(x) - exp(-x)) / (exp(x) + exp(-x))
 
@@ -38,19 +42,31 @@ class Neuron:
         # final value is the sum
         self.value = value_sum
 
-
     # original version
     def original_calculate_value(self):
-        raw_value   = sum(self.receiving) + self.bias
-        self.value  = self.tanh(raw_value)
+        raw_value  = sum(self.receiving) + self.bias
+        self.value = self.tanh(raw_value)
 
 
+    # sigmoid activation function
+    # ----------------------------
+    def sigmoid(self, x):
+        return 1.0 / (1.0 + exp(-x))
+
+    def sigmoid_calculate_value(self):
+        raw_value  = sum(self.receiving) + self.bias
+        self.value = self.sigmoid(raw_value)
+
+
+
+    # my function
+    # ------------
     def my_activation_function(self):
         raw_value = sum(self.receiving) + self.bias
         if raw_value > 0:
-            self.value = 1
+            self.value = 1.0
         else: 
-            self.value = 0
+            self.value = -1.0
 
 
 
@@ -58,7 +74,7 @@ class Neuron:
     # -------------------
     def calculate_value(self):
         # chosen activation function
-        self.my_activation_function()
+        self.original_calculate_value()
 
         # reset receiving list for next calculation
         self.receiving = []
