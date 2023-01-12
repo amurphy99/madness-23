@@ -90,63 +90,19 @@ team1 win (1 or 0)
 
 
 
+TODO
+-----
+* change layers and neuron addresses to list of dictionaries
+	key = randomly generated 4 digit number turned into a string (always check if its still in there)
 
+* code so i can delete + create new neurons
 
+* create a way to track where/how many inputs are received
 
+* split training data into like 10 batches, mutate after each batch
 
-timer:  48.38360118865967
-count:  40
-accuracy: 59.66%
-[1560, 1559, 1559, 1555, 1554, 1548, 1541, 1536, 1501, 1454]
-
-
-total layers: 3 
-
-layer: 0 |  14 neurons
-layer: 1 |  14 neurons
-layer: 2 |  1 neurons
-
-
-
-
-timer:  58.36808514595032
-count:  30
-accuracy: 59.54%
-[1557, 1546, 1538, 1535, 1535, 1533, 1530, 1523, 1502, 1495]
-
-total layers: 4 
-
-layer: 0 |  14 neurons
-layer: 1 |  14 neurons
-layer: 2 |  14 neurons
-layer: 3 |  1 neurons
-
-
-
-
-
-timer:  338.6212258338928
-count:  168
-accuracy: 60.76%
-[1589, 1589, 1587, 1585, 1583, 1576, 1559, 1558, 1552, 1545]
-
-
-timer:  646.5185971260071
-count:  320
-accuracy: 60.88%
-[1592, 1592, 1589, 1589, 1588, 1580, 1574, 1567, 1560, 1547]
-
-
-
-
-
-
-
-receiving_thread = threading.Thread(target = messenger_receive, args = ("receiving", sock), daemon = True)
-receiving_thread.start()
-
-
-threading
+* more intelligent mutation overall
+	- mutate the original copy of an agent as well as its clone
 
 
 
@@ -155,26 +111,34 @@ threading
 
 
 
-def test_agents_threading(self, inputs, solutions):
-	
-	for i in range(len(self.agents)):
-
-		agent_thread = threading.Thread(target = test_agents_thread, args = (self, i, inputs, solutions))
 
 
 
 
-def test_agents_thread(self, agent_index, inputs, solutions):
 
-	# loop through given data
-	for j in range(len(inputs)):
-								
-		# set inputs and calculate output
-		self.agents[agent_index].set_inputs(inputs[j])
-		output = self.agents[agent_index].calculate_value()
 
-    	# score if it is right or now
-		self.logic_scoring(agent_index, output, solutions[j])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

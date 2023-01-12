@@ -94,8 +94,9 @@ class Agent:
         for i in range( len(self.layers)-2 ):
             for neuron in self.layers[i]:
                 for j in range(self.starting_connections):
-                    self.new_connection(neuron, (i+1,i+1))
-                    #self.new_connection(neuron, (i+1,len(self.layers)-1))
+                    # new connections in ONLY the following layer, or all following layers besides the FINAL layer
+                    self.new_connection(neuron, (i+1,i+1))                  # only the next
+                    #self.new_connection(neuron, (i+1,len(self.layers)-1))  # all but final layer
 
         # add connections to the final neuron
         for neuron in self.layers[-2]:
@@ -252,19 +253,43 @@ class Agent:
 
 
 
+
+    # Deleting Neurons
+    def delete_neuron(self, address):
+        '''
+        address = (i, j)
+
+        Check if the layer address (second number) is the last one in the list
+        The address of every neuron that comes after this in the list has to be changed
+
+        '''
+
+        return
+
+
+
+
+
+
+
+
+
+
+
+
     # Printing Visual
     # ----------------
     def print1(self):
-        print("format  ->  final value   ") 
-        print("            ------------- ")
-        print("            # connections \n\n")
+        print("format  ->  final value    ") 
+        print("            -------------- ")
+        print("            (# to, # from)  \n\n")
 
         for i in range(len(self.layers)):
             line1 = "" # " " * 16
             line2 = "" # " " * 16
             for neuron in self.layers[i]:
                 line1 += "{:-5.2f} ".format(neuron.value)
-                line2 += "{:-5} ".format( len(neuron.sending) )
+                line2 += "({:-1}, {:-1}) ".format( len(neuron.sending), neuron.connections_to )
             print(line1)
             print(line2)
             print()
