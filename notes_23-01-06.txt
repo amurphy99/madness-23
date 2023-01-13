@@ -92,12 +92,6 @@ team1 win (1 or 0)
 
 TODO
 -----
-* change layers and neuron addresses to list of dictionaries
-	key = randomly generated 4 digit number turned into a string (always check if its still in there)
-
-* code so i can delete + create new neurons
-
-* create a way to track where/how many inputs are received
 
 * split training data into like 10 batches, mutate after each batch
 
@@ -109,10 +103,14 @@ TODO
 
 
 
+timer:  60.9480938911438
+steps:  36
+accuracy: 58.78%
 
 
-
-
+timer:  181.18890476226807
+steps:  109
+accuracy: 60.11%
 
 
 
