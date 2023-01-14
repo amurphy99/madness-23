@@ -7,9 +7,6 @@ forward propagation
 use that formula TanH? i think
 
 
-* tell dave to get github desktop
-* tell dave to get vscode
-
 
 project structure:
 -------------------
@@ -83,26 +80,6 @@ team1 win (1 or 0)
 
 
 
-
-
-
-
-
-
-
-TODO
------
-
-* split training data into like 10 batches, mutate after each batch
-
-* more intelligent mutation overall
-	- mutate the original copy of an agent as well as its clone
-
-
-
-
-
-
 timer:  60.9480938911438
 steps:  36
 accuracy: 58.78%
@@ -118,8 +95,36 @@ accuracy: 60.11%
 
 
 
+TODO
+-----
+
+* more intelligent mutation overall
+	- mutate the original copy of an agent as well as its clone
 
 
+* add evolution timer
+* add calculation timer
+
+* make this into an actual function and make it look nicer
+	print("total layers:", len(TEST_population.agents[0].layers), "\n")
+
+	for i in range(len(TEST_population.agents[0].layers)):
+	    print("layer:", i, "| ", len(TEST_population.agents[0].layers[i]), "neurons")
+
+
+
+timer:  127.2
+steps:  184
+accuracy: 58.16%
+
+
+
+
+
+
+new scoring algorithm
+
+make confident right/wrong worth more
 
 
 

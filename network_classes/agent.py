@@ -53,6 +53,8 @@ class Agent:
         self.bias_range   = 1.0
         self.weight_range = 1.0
 
+        self.max_bias   = 1.5
+        self.max_weight = 1.5
 
         # Species Mutation Info
         # ----------------------
@@ -86,7 +88,7 @@ class Agent:
 
         # middle layers
         # --------------
-        num_neurons = 7 # num_inputs
+        num_neurons = 9 # num_inputs
         for i in range(self.starting_layers):
             # create empty dict for the new layerand fill empty dict with neurons
             self.layers.append( {} )
@@ -241,6 +243,32 @@ class Agent:
 
     # create connection
     def new_connection(self, neuron, layer_range):
+        # get a list of available connection choices
+        available_addresses = []
+        for i in range(layer_range[0],layer_range[1]+1):
+            for key in self.layers[i].keys(): 
+                address = [i,key] # for each possible address
+                not_in  = True    # check if it is already in this neurons sending list
+                for existing_connection in neuron.sending:
+                    if address == existing_connection[0]: not_in = False
+                # if not in the sending list, add to possible connections
+                if not_in: available_addresses.append(address)
+
+        # if there are no new possible connections, do nothing
+        # otherwise, pick an address from the list at random to connect to
+        if   len(available_addresses) == 0: return
+        elif len(available_addresses) == 1: selected_address_index = 0 # i dont think randint works with 0,0 range
+        else:                               selected_address_index = random.randint(0, len(available_addresses)-1)
+
+        # finish creating new connection
+        address = available_addresses[selected_address_index]
+        new_weight = random.uniform(-self.weight_range, self.weight_range)
+        neuron.sending.append( [address, new_weight] )
+
+
+    # (original new connection function)
+    # * gives up if randomly picked connection already exists
+    def new_connection_v0(self, neuron, layer_range):
         # pick a neuron to connect to
         selected_layer  = random.randint( layer_range[0], layer_range[1]                     )
         selected_index  = random.randint(              0, len(self.layers[selected_layer])-1 )
@@ -259,7 +287,7 @@ class Agent:
     # delete connection
     def del_connection(self, neuron):
         # leave at least 1 connection
-        if len(neuron.sending) > 2:
+        if len(neuron.sending) > 1:
             selected_connection = random.randint(0, len(neuron.sending)-1)
             neuron.sending.pop( selected_connection )
 
@@ -279,16 +307,32 @@ class Agent:
         # ---------------------------
         for i in range( 1, len(self.layers)-1 ):
 
+            # delete any neurons with 0 connections to
+            # -----------------------------------------
+            addresses_to_delete = []
+            for key in self.layers[i].keys():
+                if self.layers[i][key].connections_to == 0:
+                    addresses_to_delete.append( [i,key] )
+
+            # delete addresses in a different loop so dictionary doesn't change size during iteration
+            for address in addresses_to_delete:
+                if len(self.layers[i]) > 4:
+                    self.delete_neuron( address )
+
+
             # add/del neuron
             # -------------------
             if self.mut_neuron_chance > random.uniform(0, 1):
                 if 0.5 > random.uniform(0, 1): # 50/50 to add or delete
-                    self.add_new_neuron(i)
+                    if len(self.layers[i]) < (1.25*len(self.layers[0])):
+                        self.add_new_neuron(i)
                 else:
-                    selected_index  = random.randint( 0, len(self.layers[i])-1 )
-                    selected_neuron = list(self.layers[i].keys())[selected_index] # need to turn the index # into the key
-                    address = [i, selected_neuron]
-                    self.delete_neuron(address)
+                    # * skip a deletion if one was already deleted
+                    if len(self.layers[i]) > 4 and len(addresses_to_delete)==0:
+                        selected_index  = random.randint( 0, len(self.layers[i])-1 )
+                        selected_neuron = list(self.layers[i].keys())[selected_index] # need to turn the index # into the key
+                        address = [i, selected_neuron]
+                        self.delete_neuron(address)
 
 
 
@@ -301,7 +345,8 @@ class Agent:
                 # -------------------
                 if self.mut_connection_chance > random.uniform(0, 1):
                     if 0.5 > random.uniform(0, 1): # 50/50 to add or delete
-                        self.new_connection(neuron, (i+1,i+1)) # self.new_connection(neuron, (i+1,len(self.layers)-2)) 
+                        self.new_connection(neuron, (i+1,i+1)) 
+                        #self.new_connection(neuron, (i+1,len(self.layers)-2)) 
                     else:
                         self.del_connection(neuron)
 
@@ -318,11 +363,11 @@ class Agent:
                     neuron.bias += random.uniform(-self.bias_mutation_range, self.bias_mutation_range)
 
                     # limit the max/min?
-                    if neuron.bias > 2: 
-                        neuron.bias = 2.0
+                    if neuron.bias > self.max_bias: 
+                        neuron.bias = self.max_bias
 
-                    elif neuron.bias < -2: 
-                        neuron.bias = -2.0
+                    elif neuron.bias < -self.max_bias: 
+                        neuron.bias = -self.max_bias
 
                 # mutate connection weight
                 # -------------------------
@@ -332,11 +377,11 @@ class Agent:
                         connection[1] += random.uniform(-self.weight_mutation_range, self.weight_mutation_range)
                         
                         # limit the max/min?
-                        if connection[1] > 2: 
-                            connection[1] = 2.0
+                        if connection[1] > self.max_weight: 
+                            connection[1] = self.max_weight
 
-                        elif connection[1] < -2: 
-                            connection[1] = -2.0
+                        elif connection[1] < -self.max_weight: 
+                            connection[1] = -self.max_weight
 
 
 
@@ -357,20 +402,28 @@ class Agent:
 
     # Printing Visual
     # ----------------
+
     def print1(self):
         print("format  ->  final value    ") 
         print("            -------------- ")
         print("            (# to, # from)  \n\n")
 
+        print("  FGM    FGA   FGM3   FGA3    FTM    FTA     OR     DR    Ast     TO    Stl    Blk     PF")
+             # -0.94   1.00  -1.00  -0.89   1.00   1.00   0.85   0.66  -0.99  -0.84   0.63   0.04   1.00 
+             # (1,6)  (1,3)  (1,2)  (1,3)  (1,5)  (1,5)  (1,7)  (1,4)  (1,6)  (1,3)  (1,3)  (1,7)  (1,5) 
+
         for i in range(len(self.layers)):
             line1 = "" # " " * 16
             line2 = "" # " " * 16
             for neuron in self.layers[i].values():
-                line1 += "{:-5.2f} ".format(neuron.value)
-                line2 += "({:-1},{:-1}) ".format( neuron.connections_to, len(neuron.sending) )
+                line1 += "{:-6.2f} ".format(neuron.value)
+                con_tuple = "({:-1},{:-1})".format( neuron.connections_to, len(neuron.sending) )
+                line2 += "{:>6} ".format(con_tuple)
             print(line1)
             print(line2)
             print()
+
+
 
 
     def print2(self):
