@@ -2,6 +2,7 @@
 
 
 import random
+import time
 
 from .neuron import Neuron
 
@@ -47,8 +48,9 @@ class Agent:
 
         # Species Creation Info
         # ----------------------
-        self.starting_layers      = 3
-        self.starting_connections = 4
+        self.starting_layers      =  3
+        self.starting_neurons     =  num_inputs 
+        self.starting_connections =  4
 
         self.bias_range   = 1.0
         self.weight_range = 1.0
@@ -66,6 +68,11 @@ class Agent:
         self.mut_connection_chance  = 0.60
 
         self.mut_neuron_chance      = 0.30
+
+
+        # stats
+        # ------
+        self.time_deleting = 0
 
 
 
@@ -88,12 +95,11 @@ class Agent:
 
         # middle layers
         # --------------
-        num_neurons = 9 # num_inputs
         for i in range(self.starting_layers):
             # create empty dict for the new layerand fill empty dict with neurons
             self.layers.append( {} )
             # layer index of this layer will always be i+1 because the input layer is already in
-            for j in range(num_neurons):
+            for j in range(self.starting_neurons):
                 self.add_new_neuron(i+1, add_connections=False)
 
         
@@ -125,11 +131,13 @@ class Agent:
     # ------------------------------------
     def calculate_value(self):
         # starting with the first layer
-        for layer in self.layers:
+        for i in range(len(self.layers)):
+            layer = self.layers[i]
             for neuron in list(layer.values()):
 
                 # first calculate the final value
-                neuron.calculate_value()
+                if i != 0:
+                    neuron.calculate_value()
 
                 # next send that value to all of the connections
                 for connection in neuron.sending:
@@ -155,6 +163,7 @@ class Agent:
             # broken up just in case i wanted to do somethign with the inputs first
             input_neuron.receiving.append(input_value)
 
+            input_neuron.value = input_value # for an experiment with non-tanh output from input neurons
 
 
 
@@ -163,7 +172,8 @@ class Agent:
 
     # Create a Neuron with only the bias defined
     def new_neuron(self):
-        new_bias = random.uniform(-self.bias_range, self.bias_range)
+        #new_bias = random.uniform(-self.bias_range, self.bias_range)
+        new_bias = 0
         return Neuron(new_bias)
 
 
@@ -208,7 +218,7 @@ class Agent:
         # --------------------------------------
         # look for all existing connections to this neuron and remove them
         #              first layer,      layer being deleted
-        #print(address)
+        start_time = time.time()
         for i in range(0, address[0]):
             for neuron in self.layers[i].values():
                 #print(neuron.sending)
@@ -224,15 +234,14 @@ class Agent:
                 to_pop.reverse()
                 for index in to_pop:
                     neuron.sending.pop(index)
-                #print()
-                #print(neuron.sending)
-                #print("\n")
+
 
         # delete the actual neuron
         # -------------------------
         # self.layers[address[0]]   -> correct dictionary from the layer list
         # address[1]                -> string key to the dictionary for this neuron
         self.layers[address[0]].pop(address[1])
+        self.time_deleting += (time.time()-start_time)
 
 
 
@@ -400,21 +409,174 @@ class Agent:
 
 
 
+
+
     # Printing Visual
     # ----------------
 
     def print1(self):
-        print("format  ->  final value    ") 
-        print("            -------------- ")
-        print("            (# to, # from)  \n\n")
+        print("format:")
+        print("")
+        print(" # neurons    |  final value        ") 
+        print(" ------------ |  --------------     ")
+        print(" average from |  (# to, # from) \n\n")
 
-        print("  FGM    FGA   FGM3   FGA3    FTM    FTA     OR     DR    Ast     TO    Stl    Blk     PF")
-             # -0.94   1.00  -1.00  -0.89   1.00   1.00   0.85   0.66  -0.99  -0.84   0.63   0.04   1.00 
-             # (1,6)  (1,3)  (1,2)  (1,3)  (1,5)  (1,5)  (1,7)  (1,4)  (1,6)  (1,3)  (1,3)  (1,7)  (1,5) 
+        print("          FGM    FGA   FGM3   FGA3    FTM    FTA   RDif    Ast     TO    Stl    Blk     PF")
+             #   12 |  -3.25   4.71  -2.62  -1.00   5.79   8.50  -1.38  -2.62   0.29   0.08   0.58   3.67 
+             #  4.1 |  (0,4)  (0,4)  (0,5)  (0,3)  (0,4)  (0,4)  (0,5)  (0,5)  (0,4)  (0,3)  (0,4)  (0,4)
+
+
+        total_neurons     = 0
+        total_connections = 0
 
         for i in range(len(self.layers)):
+            # prep for the printed lines
+            line1 = "" 
+            line2 = ""
+
+            # prep for data
+            total_connections_to   = 0
+            total_connections_from = 0
+            for neuron in self.layers[i].values():
+                # tracking data for later
+                total_connections_to   += neuron.connections_to
+                total_connections_from += len(neuron.sending)
+
+                # add to the lines
+                line1 += "{:-6.2f} ".format(neuron.value)                
+                con_tuple = "({:-1},{:-1})".format( neuron.connections_to, len(neuron.sending) )
+                line2 += "{:>6} ".format(con_tuple)
+
+
+            # finished data for start of lines
+            neuron_count             = len(self.layers[i])
+            average_connections_from = round( (total_connections_from / neuron_count), 1)
+
+            # for ending line stats
+            total_neurons     += len(self.layers[i])
+            total_connections += total_connections_from
+
+            line1_prefix = "{:>4} | ".format(neuron_count)
+            line2_prefix = "{:>4} | ".format(average_connections_from)
+
+
+            print( (line1_prefix + line1) )
+            print( (line2_prefix + line2) )
+            print("      ")
+
+        print()
+        print("{} layers, {} neurons, {} connections".format( len(self.layers), total_neurons, total_connections))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Printing Visual
+    # ----------------
+
+    def print3(self):
+        '''
+        format:
+
+        # neurons, average from |    final value        
+        ----------------------- |    --------------  ...
+        (total to, total from)  |    (# to, # from)   
+
+
+                       FGM    FGA   FGM3   FGA3    FTM    FTA   RDif    Ast     TO    Stl    Blk     PF
+         12, 3.8 |    -3.25   4.71  -2.62  -1.00   5.79   8.50  -1.38  -2.62   0.29   0.08   0.58   3.67 
+        ( 0, 45) |    (0,4)  (0,6)  (0,3)  (0,4)  (0,3)  (0,4)  (0,2)  (0,4)  (0,6)  (0,4)  (0,3)  (0,2) 
+
+          9, 3.0 |     0.66   1.00  -0.82  -1.00  -1.00   0.82  -1.00   1.00  -0.99 
+        (45, 27) |    (6,3)  (5,3)  (2,3)  (7,2)  (4,5)  (5,1)  (7,3)  (4,3)  (5,4) 
+
+          8, 3.5 |     0.18  -0.95  -0.15   0.90   0.15   0.93  -1.00   0.03 
+        (27, 28) |    (1,2)  (3,6)  (4,3)  (3,2)  (2,3)  (4,5)  (7,4)  (3,3) 
+
+          9, 1.0 |    -0.82  -0.94  -0.40   0.18   0.69   0.66  -0.65  -0.54   0.92 
+        (28,  9) |    (4,1)  (5,1)  (1,1)  (1,1)  (3,1)  (3,1)  (4,1)  (5,1)  (2,1) 
+
+          1, 0.0 |    -0.91 
+        ( 9,  0) |    (9,0)
+
+        '''
+        print("format:")
+        print("")
+        print("# neurons, average from |    final value        ") 
+        print("----------------------- |    --------------  ...")
+        print("(total to, total from)  |    (# to, # from)   \n\n")
+
+        print("               FGM    FGA   FGM3   FGA3    FTM    FTA   RDif    Ast     TO    Stl    Blk     PF")
+             # 12, 4.1 |    -3.25   4.71  -2.62  -1.00   5.79   8.50  -1.38  -2.62   0.29   0.08   0.58   3.67 
+             #( 0, 49) |    (0,4)  (0,4)  (0,5)  (0,3)  (0,4)  (0,4)  (0,5)  (0,5)  (0,4)  (0,3)  (0,4)  (0,4)
+
+        for i in range(len(self.layers)):
+            # prep for the printed lines
+            line1 = "" 
+            line2 = ""
+
+            # prep for data
+            total_connections_to   = 0
+            total_connections_from = 0
+            for neuron in self.layers[i].values():
+                # tracking data for later
+                total_connections_to   += neuron.connections_to
+                total_connections_from += len(neuron.sending)
+
+                # add to the lines
+                line1 += "{:-6.2f} ".format(neuron.value)                
+                con_tuple = "({:-1},{:-1})".format( neuron.connections_to, len(neuron.sending) )
+                line2 += "{:>6} ".format(con_tuple)
+
+
+            # finished data for start of lines
+            neuron_count             = len(self.layers[i])
+            average_connections_from = round( (total_connections_from / neuron_count), 1)
+
+            #                 12, 4.0 |   -
+            line1_prefix = " {:>2},{:>4} |   ".format(neuron_count, average_connections_from)
+            #               (  0, 48) |   -
+            line2_prefix = "({:>2},{:>3}) |   ".format(total_connections_to, total_connections_from)
+
+
+            print( (line1_prefix + line1) )
+            print( (line2_prefix + line2) )
+            print()
+
+
+
+
+
+
+
+    def print2(self):
+        print("format  ->  final value    ") 
+        print("            -------------- ")
+        print("            (# to, # from)  \n")
+
+        #print("   FGM    FGA   FGM3   FGA3    FTM    FTA     OR     DR    Ast     TO    Stl    Blk     PF")
+              #  -0.94   1.00  -1.00  -0.89   1.00   1.00   0.85   0.66  -0.99  -0.84   0.63   0.04   1.00 
+              #  (1,6)  (1,3)  (1,2)  (1,3)  (1,5)  (1,5)  (1,7)  (1,4)  (1,6)  (1,3)  (1,3)  (1,7)  (1,5) 
+
+        print("   FGM    FGA   FGM3   FGA3    FTM    FTA   RDif    Ast     TO    Stl    Blk     PF")
+             #  -3.25   4.71  -2.62  -1.00   5.79   8.50  -1.38  -2.62   0.29   0.08   0.58   3.67 
+             #  (0,6)  (0,3)  (0,3)  (0,3)  (0,3)  (0,6)  (0,3)  (0,4)  (0,3)  (0,6)  (0,4)  (0,4) 
+
+        for i in range(len(self.layers)):
+            neuron_count     = len(self.layers[i])
+            connections_from = 0
+
             line1 = "" # " " * 16
-            line2 = "" # " " * 16
+            line2 = "{:>3}".format(connections_from_count) # " " * 16
             for neuron in self.layers[i].values():
                 line1 += "{:-6.2f} ".format(neuron.value)
                 con_tuple = "({:-1},{:-1})".format( neuron.connections_to, len(neuron.sending) )
@@ -426,39 +588,6 @@ class Agent:
 
 
 
-    def print2(self):
-        
-        print("""
-        (0,1) -> bias, final value
-        ----------------------------
-        (1,0) -> weight | value sent
-        (1,2) -> weight | value sent
-
-        \n\n""")
-
-
-        for i in range(len(self.layers)):
-            #         0   1   2   3    4
-            lines = ["", "", "", "", "\n"]
-
-            for j in range(len(self.layers[i].values())):
-                neuron = list(self.layers[i].values())[j]
-
-                address = "({},{})".format(i, j)
-
-                lines[0] += "{:6s} -> {:-5.2f}, {:-6.2f}   ".format(address, neuron.bias, neuron.value)
-                lines[1] += ("-" * 23) + "   "
-
-                for k in range(len(neuron.sending)):
-                    conn = neuron.sending[k]
-
-                    address = "({},{})".format(conn[0][0], conn[0][1])
-
-                    lines[k+2] += "{:6s} -> {:-5.2f} | {:-5.2f}   ".format(address, conn[1], (conn[1]*neuron.value))
-
-            for line in lines:
-                print(line)
-                    
 
 
 
@@ -473,17 +602,4 @@ class Agent:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# end

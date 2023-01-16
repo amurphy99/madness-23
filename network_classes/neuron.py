@@ -41,14 +41,26 @@ class Neuron:
     def tanh(self, x):
         return (exp(x) - exp(-x)) / (exp(x) + exp(-x))
 
-
-    # original version
-    def tanh_calculate_value(self):
+    def tanh_after_sum(self):
         raw_value  = sum(self.receiving) + self.bias
         self.value = self.tanh(raw_value)
 
+    def tanh_before_sum(self):
+        after_tanh = [ self.tanh(self.bias) ]
+        for value in self.receiving:
+            after_tanh.append( self.tanh(value) )
+        self.value = sum(after_tanh)
+
+    def tanh_before_after_sum(self):
+        after_tanh = [ self.tanh(self.bias) ]
+        for value in self.receiving:
+            after_tanh.append( self.tanh(value) )
+        self.value = self.tanh( sum(after_tanh) )
+
+
 
     # sigmoid activation function
+    # ----------------------------
     def sigmoid(self, x):
         return 1.0 / (1.0 + exp(-x))
 
@@ -74,7 +86,7 @@ class Neuron:
     # -------------------
     def calculate_value(self):
         # chosen activation function
-        self.tanh_calculate_value()
+        self.tanh_after_sum()
 
         # reset receiving list for next calculation
         self.connections_to = len(self.receiving)

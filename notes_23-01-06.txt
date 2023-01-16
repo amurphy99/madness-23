@@ -101,30 +101,7 @@ TODO
 * more intelligent mutation overall
 	- mutate the original copy of an agent as well as its clone
 
-
-* add evolution timer
-* add calculation timer
-
-* make this into an actual function and make it look nicer
-	print("total layers:", len(TEST_population.agents[0].layers), "\n")
-
-	for i in range(len(TEST_population.agents[0].layers)):
-	    print("layer:", i, "| ", len(TEST_population.agents[0].layers[i]), "neurons")
-
-
-
-timer:  127.2
-steps:  184
-accuracy: 58.16%
-
-
-
-
-
-
-new scoring algorithm
-
-make confident right/wrong worth more
+* try other math multiplecation thing
 
 
 
@@ -133,9 +110,34 @@ make confident right/wrong worth more
 
 
 
+Stat Changes
+-------------
+
+* change FGM, 3GFM, FTM to their percentages
+	- leave attempted as is
+
+* train with 2021, test with 2022?
 
 
 
+
+
+
+
+
+FGM    FGA   FGM3   FGA3    FTM    FTA   RDif    Ast     TO    Stl    Blk     PF
+
+
+
+
+
+
+
+
+
+
+
+      
 
 
 

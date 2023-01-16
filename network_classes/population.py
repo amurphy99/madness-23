@@ -1,6 +1,8 @@
 import random
 import copy
 import threading
+from math import log
+
 
 from .neuron import Neuron
 from .agent  import Agent
@@ -19,6 +21,8 @@ class Population:
 		# -------
 		self.agents = []
 		self.scores = []
+		self.base_scores = []
+		self.test = []
 		
 		# for confidence scoring
 		# -----------------------
@@ -29,14 +33,17 @@ class Population:
 
 		for i in range(num_agents):
 			self.agents.append( Agent(num_inputs) )
-			self.scores.append( 0 				  )
+			self.scores.append( 0 )
+			self.base_scores.append( 0 )
 			self.confidence_scores.append( [0,0,0,0] )
+			self.test.append([])
 
 
 		# Statistics
 		# -----------
 		self.total_steps = 0
 		self.best_score  = 0
+		
 
 
 	# Testing Functions
@@ -68,14 +75,14 @@ class Population:
 
    		# score it
 		if result == solution:
-			self.scores[agent_index] += 1
+			self.base_scores[agent_index] += 1
 
 
 
 
 	# version 2
 	# (for when testing a game both ways)
-	def test_agents_double(self, inputs, solutions):
+	def test_agents_double(self, inputs, solutions, show_scores=False):
 		'''
 		# if team 1 was the winner:
 		# first test = positive
@@ -92,9 +99,14 @@ class Population:
 		'''
 		# test 1 agent at a time on all data
 		for i in range(len(self.agents)):
-			self.scores[i] = 0 # just temporary, resetting scores here
+			self.scores[i]            = 0 # just temporary, resetting scores here
+			self.base_scores[i]       = 0
+			self.test[i]              = []
+			self.confidence_scores[i] = [0,0,0,0]
+
 
 			if self.scores[i] == 0: # only re-test if the score was reset
+
 				current = 0
 				for j in range( len(inputs)//2 ):
 					
@@ -109,22 +121,28 @@ class Population:
 					# final decision (for the final decision we will use the first way around)
 					output = (first_test - second_test)
 
-
-	    	    	# score the agents final evaluation
-	    	    	# ----------------------------------
-
-					# if they havent been confidence scored yet, do that first
-					if sum(self.confidence_scores[i]) == 0:
-						self.confidence_scoring(i, output, solutions[current])
-						self.scores[i] = 0 # reset the overall scoring for the actual logic scoring that comes next
-
-					self.logic_scoring(i, output, solutions[current])     # normal scoring
-					#self.confidence_scoring(i, output, solutions[current]) # confidence scoring
+					# score the agents final evaluation
+					self.tanh_confidence_scoring(i, output, solutions[current])
+					self.confidence_scoring(i, output, solutions[current])
+					self.logic_scoring(i, output, solutions[current])           # normal scoring
 
 					# iterate j an extra value since we use two per loop
 					current += 2
 
-		#self.best_score = max(self.scores)
+				
+				if i == 0 and show_scores:
+					uniques = {}
+					for score in self.test[i]:
+						rounded = round(score, 1)
+						if rounded in uniques: uniques[rounded] += 1
+						else:                  uniques[rounded]  = 1 
+					
+					for entry in uniques.keys():
+						print( "{:>6} - {}".format(entry, uniques[entry]) )
+				
+
+
+
 
 
 
@@ -135,20 +153,20 @@ class Population:
 			conf_total  = self.confidence_scores[i][0] *  7
 			conf_total += self.confidence_scores[i][1] *  4
 			conf_total += self.confidence_scores[i][2] * -2
-			conf_total += self.confidence_scores[i][3] * -5
+			conf_total += self.confidence_scores[i][3] * -8
 
 			self.scores[i] = conf_total
 			if self.scores[i] == 0: print("ERROR in logic_to_conf()")
 
 
 
-	def confidence_scoring(self, agent_index, output, solution):	
+	def confidence_scoring(self, agent_index, output, solution):
 		# score values
 		# -------------
 		confident_right     =  7
 		not_confident_right =  4
 		not_confident_wrong = -2
-		confident_wrong     = -5
+		confident_wrong     = -8
 
 
 		# assigning scores
@@ -157,23 +175,51 @@ class Population:
 		# confident_right
 		if (solution > 0 and output > 0.5) or (solution <= 0 and output < -0.5):
 			self.confidence_scores[agent_index][0] += 1
-			self.scores           [agent_index]    += confident_right
+			#self.scores           [agent_index]    += confident_right
 
 		# not confident right
 		elif (solution > 0 and output > 0) or (solution <= 0 and output < 0):
 			self.confidence_scores[agent_index][1] += 1
-			self.scores           [agent_index]    += not_confident_right
+			#self.scores           [agent_index]    += not_confident_right
 
 		# not confident wrong
 		elif (solution > 0 and output > -0.5) or (solution <= 0 and output < 0.5):
 			self.confidence_scores[agent_index][2] += 1
-			self.scores           [agent_index]    += not_confident_wrong
+			#self.scores           [agent_index]    += not_confident_wrong
 
 		# confident wrong
 		elif (solution > 0 and output < -0.5) or (solution <= 0 and output > 0.5):
 			self.confidence_scores[agent_index][3] += 1
-			self.scores           [agent_index]    += confident_wrong
+			#self.scores           [agent_index]    += confident_wrong
 
+		else: print("idk")
+
+
+
+	def tanh_confidence_scoring(self, agent_index, output, solution):
+		# score values
+		# -------------
+		abs_output = abs(output)
+		if abs_output >= 0.99:
+			post_tanh = 2.8
+		else:
+			post_tanh  = (1/2) * log((1+abs_output)/(1-abs_output)) 
+
+		# try increasing it
+		post_tanh = 1.25**post_tanh
+
+		# assigning scores
+		# -----------------
+
+		# right
+		if (solution > 0 and output > 0) or (solution <= 0 and output <= 0):
+			self.scores[agent_index] += post_tanh
+			self.test[agent_index].append(post_tanh)
+
+		# wrong
+		elif (solution > 0 and output <= 0) or (solution <= 0 and output > 0):
+			self.scores[agent_index] -= post_tanh
+			self.test[agent_index].append(-post_tanh)
 
 
 
@@ -242,6 +288,7 @@ class Population:
 		for i in range(len(new_agents)):
 			if type(new_agents[i]) == int:
 				self.scores[i] = 0 # reset the score of the clone
+				self.confidence_scores[i] = [0,0,0,0] 
 				new_agents[i]  = clones.pop(0)
 
 		# assign the new agents list
@@ -256,7 +303,8 @@ class Population:
 		for i in range(len(self.scores)):
 			# only reset the scores for the non clones
 			if i not in survivors:
-				self.scores[i] = 0
+				self.scores[i]      = 0
+				self.base_scores[i] = 0
 				if reset_confidence_scores:
 					self.confidence_scores[i] = [0,0,0,0]
 
@@ -338,7 +386,8 @@ class Population:
 		    # score the agents final evaluation
 	    	# ----------------------------------
 			#self.logic_scoring(agent_index, output, solutions[current])     # normal scoring
-			self.confidence_scoring(agent_index, output, solutions[current]) # confidence scoring
+			self.tanh_confidence_scoring(agent_index, output, solutions[current])
+			#self.confidence_scoring(agent_index, output, solutions[current]) # confidence scoring
 
 			# iterate j an extra value since we use two per loop
 			current += 2
