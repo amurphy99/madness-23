@@ -98,15 +98,19 @@ accuracy: 60.11%
 TODO
 -----
 
+* trim unused/old code
+
+* turn output report into its own function
+
 * more intelligent mutation overall
 	- mutate the original copy of an agent as well as its clone
 
 * try other math multiplecation thing
 
+* create timers for everything and output a time report
 
 
-
-
+* also score based on abs(of all weights)
 
 
 
@@ -116,7 +120,26 @@ Stat Changes
 * change FGM, 3GFM, FTM to their percentages
 	- leave attempted as is
 
-* train with 2021, test with 2022?
+
+
+
+
+
+
+what are all the things i can tweak
+------------------------------------
+
+* max weight
+* max bias
+* starting connections
+* starting neurons
+* starting layers
+
+* weight mutation amount
+* bias mutation amount
+* chances for different things to mutate
+
+* inverse tanh score values
 
 
 
@@ -125,7 +148,31 @@ Stat Changes
 
 
 
-FGM    FGA   FGM3   FGA3    FTM    FTA   RDif    Ast     TO    Stl    Blk     PF
+matrix multiplecation:
+
+each layer = list of connection weights
+
+
+
+right now
+----------
+* size of numbers
+	__setattr__(self, attr, value):
+		if attr == 'bias':
+			self.bias = int32(value)
+
+* make sure if a neuron is deleted, 
+
+
+
+
+
+
+
+use threading for progress bar
+	after time limit reached say: 
+	"time limit reached, finishing current step"
+	"last step completed, running testing for report"
 
 
 
@@ -137,7 +184,41 @@ FGM    FGA   FGM3   FGA3    FTM    FTA   RDif    Ast     TO    Stl    Blk     PF
 
 
 
-      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

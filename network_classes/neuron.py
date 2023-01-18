@@ -2,7 +2,7 @@
 
 
 from math import exp
-
+from sys  import getsizeof
 
 class Neuron:
     '''
@@ -23,17 +23,30 @@ class Neuron:
         self.sending        = []
 
         # statistics
-        self.connections_to = 0
+        self.connections_to = 1
 
 
+    def __sizeof__(self):
+        total_size  = 0
+        total_size += getsizeof(self.bias)
+        total_size += getsizeof(self.receiving)
+        total_size += getsizeof(self.value)
+        total_size += getsizeof(self.connections_to)
+        total_size += getsizeof(self.sending)
+        
+        for connection in self.sending:
+            # [(i, "key"), weight] 
+            total_size += getsizeof(connection[0][0])
+            total_size += getsizeof(connection[0][1])
+            total_size += getsizeof(connection[1]   )
 
+        return total_size
 
 
 
 
     # activation functions
     # ---------------------
-
 
 
     # tanh activation function
@@ -43,6 +56,14 @@ class Neuron:
 
     def tanh_after_sum(self):
         raw_value  = sum(self.receiving) + self.bias
+
+        if raw_value > 700:
+            #print(raw_value)
+            #print(self.receiving)
+            raw_value = 700
+        elif raw_value < -700:
+            raw_value = -700
+
         self.value = self.tanh(raw_value)
 
     def tanh_before_sum(self):
