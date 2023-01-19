@@ -15,15 +15,17 @@ class Neuron:
     def __init__(self, bias=0, receiving=[], sending=[]):
         # for calculating the value
         self.bias           = bias
-        self.receiving      = []
+        self.receiving      = 0
+        #self.receiving      = []
+
         self.value          = 0
         
-        # one value of connections list = (layer,index) of connection, weight 
-        # * example: ( (1,1), 0.5 )
-        self.sending        = []
+        # one value of connections list = (layer,index) of connection, weight
+        self.sending        = [] # * example: ( (1,1), 0.5 )
 
         # statistics
-        self.connections_to = 1
+        self.this_connections_to = 0
+        self.connections_to      = 1
 
 
     def __sizeof__(self):
@@ -55,16 +57,15 @@ class Neuron:
         return (exp(x) - exp(-x)) / (exp(x) + exp(-x))
 
     def tanh_after_sum(self):
-        raw_value  = sum(self.receiving) + self.bias
+        #raw_value  = sum(self.receiving) + self.bias
+        raw_value = self.receiving + self.bias
 
-        if raw_value > 700:
-            #print(raw_value)
-            #print(self.receiving)
-            raw_value = 700
-        elif raw_value < -700:
-            raw_value = -700
+        if      raw_value >  700: raw_value =  700
+        elif    raw_value < -700: raw_value = -700
 
         self.value = self.tanh(raw_value)
+
+
 
     def tanh_before_sum(self):
         after_tanh = [ self.tanh(self.bias) ]
@@ -79,7 +80,6 @@ class Neuron:
         self.value = self.tanh( sum(after_tanh) )
 
 
-
     # sigmoid activation function
     # ----------------------------
     def sigmoid(self, x):
@@ -90,14 +90,15 @@ class Neuron:
         self.value = self.sigmoid(raw_value)
 
 
-
     # my function
+    # ------------
     def my_activation_function(self):
         raw_value = sum(self.receiving) + self.bias
         if raw_value > 0:
             self.value = 1.0
         else: 
             self.value = -1.0
+
 
 
 
@@ -110,8 +111,12 @@ class Neuron:
         self.tanh_after_sum()
 
         # reset receiving list for next calculation
-        self.connections_to = len(self.receiving)
-        self.receiving = []
+        self.connections_to      = self.this_connections_to
+        self.this_connections_to = 0
+        self.receiving           = 0
+
+        #self.connections_to = len(self.receiving)
+        #self.receiving = []
 
 
 

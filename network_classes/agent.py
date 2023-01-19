@@ -301,10 +301,12 @@ mut_neuron_chance       {:>8}
 
                 # next send that value to all of the connections
                 sending_to_connections_time = time()
+                value = neuron.value
                 for connection in neuron.sending:
-                    address = connection[0]
-                    value   = connection[1] * neuron.value
-                    self.layers[ address[0] ][ address[1] ].receiving.append(value)
+                    weighted_value = connection[1] * value
+                    self.layers[ connection[0][0] ][ connection[0][1] ].receiving += value       #.receiving.append(value)
+                    self.layers[ connection[0][0] ][ connection[0][1] ].this_connections_to += 1
+
                 time_sending_values += (time()-sending_to_connections_time)
 
         # return final neurons value
@@ -313,16 +315,12 @@ mut_neuron_chance       {:>8}
 
     # set new inputs for a calculation
     def set_inputs(self, new_inputs):
-        time_setting_inputs = 0
-        time_error_checking_inputs = 0
         # quick error checking
         error_check_time = time()
         if len(new_inputs) != len(self.layers[0]):
             print("Error: wrong number of inputs; agent takes {} inputs but received {} values".format( len(self.layers[0]), len(new_inputs) ))
-        time_error_checking_inputs += (time()-error_check_time)
 
         # setting the inputs
-        set_inputs_time = 0
         input_layer = list(self.layers[0].values())
         for i in range(len(new_inputs)):
             input_neuron = input_layer[i]
@@ -331,9 +329,6 @@ mut_neuron_chance       {:>8}
             #input_neuron.receiving.append(input_value)
 
             input_neuron.value = input_value # for an experiment with non-tanh output from input neurons
-        time_setting_inputs += (time()-set_inputs_time)
-
-        return time_error_checking_inputs, time_setting_inputs
 
 
 

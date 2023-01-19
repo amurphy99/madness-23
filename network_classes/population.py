@@ -57,8 +57,13 @@ class Population:
 		self.time_calculating_values = 0
 		self.time_sending_values 	 = 0
 
-		self.time_error_checking_inputs = 0
-		self.time_setting_inputs        = 0
+		self.time_setting_inputs     = 0
+		self.time_tanh_scoring		 = 0
+
+		self.time_threading 		= 0
+		self.time_creating_threads 	= 0
+		self.time_starting_threads	= 0
+		self.time_joining_threads	= 0
 
 
 
@@ -158,7 +163,7 @@ class Population:
 		# right
 		if (solution > 0 and output > 0) or (solution <= 0 and output <= 0):
 			#self.base_scores[agent_index] += 1
-			self.scores[agent_index]      += correct_score + 1
+			self.scores[agent_index]      += correct_score 
 			#self.test[agent_index].append(correct_score + 1)
 			# conf list
 			#if abs_output > 0.5: 	self.confidence_scores[agent_index][0] += 1
@@ -244,6 +249,65 @@ class Population:
 
 
 
+
+	def timed_test_agents_double(self, inputs, solutions):
+		threading_time = time()
+		# test 1 agent at a time on all data
+		for i in range(len(self.agents)):
+			
+
+			if self.base_scores[i] == 0: # only re-test if the score was reset
+
+				current = 0
+				for j in range( len(inputs)//2 ):
+					
+					# FIRST way around
+					# -----------------
+					set_inputs_time = time()
+					self.agents[i].set_inputs(inputs[current])
+					self.time_setting_inputs += (time()-set_inputs_time)
+
+					first_test, calc_time, send_time = self.agents[i].calculate_value()
+					self.time_calculating_values += calc_time
+					self.time_sending_values     += send_time
+
+
+					# SECOND way around
+					# ------------------
+					set_inputs_time = time()
+					self.agents[i].set_inputs(inputs[current+1])
+					self.time_setting_inputs += (time()-set_inputs_time)
+
+					second_test, calc_time, send_time = self.agents[i].calculate_value()
+					self.time_calculating_values += calc_time
+					self.time_sending_values     += send_time
+
+					
+					# Scoring
+					# --------
+					tanh_scoring_time = time()
+					# final decision (for the final decision we will use the first way around)
+					output = (first_test - second_test)
+					# score the agents final evaluation
+					self.tanh_confidence_scoring(i, output, solutions[current])
+					self.time_tanh_scoring += (time()-tanh_scoring_time)
+
+
+					# iterate j an extra value since we use two per loop
+					current += 2
+
+				self.num_calculations += 1
+
+		self.time_threading += (time()-threading_time)
+
+
+
+
+
+
+
+
+
 	# threading methods
 	# -----------------------------
 	def test_agents_thread_double(self, agent_index, inputs, solutions):
@@ -266,18 +330,18 @@ class Population:
 		for j in range( len(inputs)//2 ):
 									
 			# FIRST way around
-			error_time, set_time = self.agents[agent_index].set_inputs(inputs[current])
-			self.time_error_checking_inputs += error_time
-			self.time_setting_inputs        += set_time
+			set_inputs_time = time()
+			self.agents[agent_index].set_inputs(inputs[current])
+			self.time_setting_inputs += (time()-set_inputs_time)
 
 			first_test, calc_time, send_time = self.agents[agent_index].calculate_value()
 			self.time_calculating_values += calc_time
 			self.time_sending_values     += send_time
 
 			# SECOND way around
-			error_time, set_time = self.agents[agent_index].set_inputs(inputs[current+1])
-			self.time_error_checking_inputs += error_time
-			self.time_setting_inputs        += set_time
+			set_inputs_time = time()
+			self.agents[agent_index].set_inputs(inputs[current+1])
+			self.time_setting_inputs += (time()-set_inputs_time)
 
 			second_test, calc_time, send_time = self.agents[agent_index].calculate_value()
 			self.time_calculating_values += calc_time
@@ -297,26 +361,38 @@ class Population:
 
 
 	def test_agents_threading_double(self, inputs, solutions):
+		threading_time = time()
+
 		# keep all threads in a list
 		threads = []
 
 		# create all threads and store them
+		creating_threads_time = time()
 		for i in range(len(self.agents)):
 			if self.scores[i] == 0: # only re-test if the score was reset
 				agent_thread = threading.Thread(target = self.test_agents_thread_double, args = (i, inputs, solutions))
 				threads.append(agent_thread)
+		self.time_creating_threads += (time()-creating_threads_time)
+
 
 		# Start all threads
+		starting_threads_time = time()
 		for single in threads:
 			single.start()
+		self.time_starting_threads += (time()-starting_threads_time)
+
 
 		# Wait for all of them to finish
+		joining_threads_time = time()
 		for wait in threads:
 			wait.join()
 			self.num_calculations += 1
+		self.time_joining_threads += (time()-joining_threads_time)
+
+
+		self.time_threading += (time()-threading_time)
 
 		self.best_score = max(self.scores)
-
 
 
 

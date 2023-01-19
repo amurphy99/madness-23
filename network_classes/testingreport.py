@@ -278,21 +278,44 @@ selecting   {9:>6}s  {10:>6}%
 	def scoring_time_report(self):
 		total_scoring_time = round(self.total_scoring_timer, 2)
 
-		calc_time    = round(self.population.time_calculating_values / self.population.num_calculations, 2 )
-		calc_time_p  = round( (calc_time/total_scoring_time)*100, 2 )
-
-		send_time    = round(self.population.time_sending_values / self.population.num_calculations, 2 )
-		send_time_p  = round( (send_time/total_scoring_time)*100, 2 )
-
-		error_time   = round(self.population.time_error_checking_inputs / self.population.num_calculations, 2 )
-		error_time_p = round( (send_time/total_scoring_time)*100, 2 )
-
-		set_time     = round(self.population.time_setting_inputs / self.population.num_calculations, 2 )
-		set_time_p   = round( (send_time/total_scoring_time)*100, 2 )
+		#divided_by_time = self.population.num_calculations
+		divided_by_time = 1
 
 
-		accounted_for = sum( [calc_time, send_time, error_time, set_time] )
+		calc_time   = round(self.population.time_calculating_values / divided_by_time, 2 )
+		calc_time_p = round( (calc_time/total_scoring_time)*100, 2 )
+
+		send_time   = round(self.population.time_sending_values / divided_by_time, 2 )
+		send_time_p = round( (send_time/total_scoring_time)*100, 2 )
+
+		set_time   = round(self.population.time_setting_inputs / divided_by_time, 2 )
+		set_time_p = round( (set_time/total_scoring_time)*100, 2 )
+
+		tanh_time   = round(self.population.time_tanh_scoring / divided_by_time, 2 )
+		tanh_time_p = round( (tanh_time/total_scoring_time)*100, 2 )
+
+
+		accounted_for   = round(sum([calc_time, send_time, set_time, tanh_time]), 2)
 		accounted_for_p = round( (accounted_for/total_scoring_time)*100, 2 )
+
+
+
+		# threading stuff
+		# ---------------
+
+		thread_time     = round(self.population.time_threading, 2 )
+		thread_time_p   = round( (thread_time/total_scoring_time)*100, 2 )
+
+
+		creating     = round(self.population.time_creating_threads, 2 )
+		creating_p   = round( (creating/thread_time)*100, 2 )
+
+		starting     = round(self.population.time_starting_threads, 2 )
+		starting_p   = round( (starting/thread_time)*100, 2 )
+
+		joining     = round(self.population.time_joining_threads, 2 )
+		joining_p   = round( (joining/thread_time)*100, 2 )
+
 
 
 		print("""
@@ -301,17 +324,27 @@ selecting   {9:>6}s  {10:>6}%
 total       {0:>6}s
 calc val    {1:>6}s  {2:>6}%
 send time   {3:>6}s  {4:>6}%
-error time  {5:>6}s  {6:>6}%
-set  time   {7:>6}s  {8:>6}%
-acc for 	{9:>6}s  {10:>6}%
+set time    {5:>6}s  {6:>6}%
+inv tanh    {7:>6}s  {8:>6}%
+            -------  -------
+acc for     {9:>6}s  {10:>6}%
+            -------  -------
+thread time {11:>6}s  {12:>6}%
+creating    {13:>6}s  {14:>6}%
+starting    {15:>6}s  {16:>6}%
+joining     {17:>6}s  {18:>6}%
 """.format(total_scoring_time, 
            calc_time,  		calc_time_p, 
            send_time,  		send_time_p,
-           error_time, 		error_time_p,
            set_time,      	set_time_p,
-           accounted_for, 	accounted_for_p
-           ))
+           tanh_time, 		tanh_time_p,
+           accounted_for, 	accounted_for_p,
 
+           thread_time, 	thread_time_p, 
+           creating, 		creating_p, 
+           starting, 		starting_p, 
+           joining, 		joining_p
+           ))
 
 
 
@@ -370,7 +403,8 @@ acc for 	{9:>6}s  {10:>6}%
 		    # scoring
 		    # --------
 		    scoring_start = time()
-		    self.population.test_agents_threading_double(training_data, training_solutions) # (inputs_splits[i%10], solutions_splits[i%10])
+		    #self.population.test_agents_threading_double(training_data, training_solutions) # (inputs_splits[i%10], solutions_splits[i%10])
+		    self.population.timed_test_agents_double(training_data, training_solutions)
 		    scoring_timer += (time() - scoring_start)
 
 
