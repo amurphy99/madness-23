@@ -3,6 +3,11 @@
 
 from math import exp
 from sys  import getsizeof
+from copy import deepcopy
+from time import time
+
+import numpy as np
+
 
 class Neuron:
     '''
@@ -12,20 +17,20 @@ class Neuron:
         - https://machinelearningmastery.com/choose-an-activation-function-for-deep-learning/
     
     '''
-    def __init__(self, bias=0, receiving=[], sending=[]):
+    def __init__(self, bias=0, weights=[], connections_to=1):
         # for calculating the value
         self.bias           = bias
-        self.receiving      = 0
-        #self.receiving      = []
-
+        self.receiving      = 0     #self.receiving      = []
         self.value          = 0
         
         # one value of connections list = (layer,index) of connection, weight
-        self.sending        = [] # * example: ( (1,1), 0.5 )
+        self.sending = [] # list of other Neurons #self.sending = [] # * example: ( (1,1), 0.5 )
+        self.weights = deepcopy(weights)
 
         # statistics
         self.this_connections_to = 0
-        self.connections_to      = 1
+        self.connections_to      = connections_to
+
 
 
     def __sizeof__(self):
@@ -33,22 +38,27 @@ class Neuron:
         total_size += getsizeof(self.bias)
         total_size += getsizeof(self.receiving)
         total_size += getsizeof(self.value)
+
+        total_size += getsizeof(self.this_connections_to)
         total_size += getsizeof(self.connections_to)
-        total_size += getsizeof(self.sending)
         
-        for connection in self.sending:
-            # [(i, "key"), weight] 
-            total_size += getsizeof(connection[0][0])
-            total_size += getsizeof(connection[0][1])
-            total_size += getsizeof(connection[1]   )
+        total_size += getsizeof(self.sending)
+        total_size += getsizeof(self.weights)
+        
+        for i in range(len(self.weights)):
+            total_size += getsizeof(self.weights[i])
+
+        if len(self.sending) != len(self.weights): print("unequal weights and connections")
 
         return total_size
 
 
 
+    # custom "deepcopy" method
+    # -------------------------
+    def neuron_copy(self):
+        return Neuron(bias=self.bias, weights=deepcopy(self.weights), connections_to=self.connections_to)
 
-    # activation functions
-    # ---------------------
 
 
     # tanh activation function
@@ -60,6 +70,7 @@ class Neuron:
         #raw_value  = sum(self.receiving) + self.bias
         raw_value = self.receiving + self.bias
 
+        # on rare occasions inputs can exceed the tanh limit
         if      raw_value >  700: raw_value =  700
         elif    raw_value < -700: raw_value = -700
 
@@ -67,6 +78,45 @@ class Neuron:
 
 
 
+    # calculating value
+    # ------------------
+
+    def send_value(self):
+        send_time = time()
+
+        #weighted_values = np.multiply(np.fromiter(self.weights, dtype=np.double), self.value) 
+        for i in range(len(self.sending)):
+            #self.sending[i].receiving += weighted_values[i]
+            self.sending[i].receiving += (self.weights[i]*self.value)
+            self.sending[i].this_connections_to += 1
+
+        return 0,(time()-send_time)
+
+
+    def calculate_value(self):
+        # chosen activation function
+        calc_time = time()
+        self.tanh_after_sum()
+        calc = (time()-calc_time)
+
+        calc1, send = self.send_value()
+
+        # reset receiving list for next calculation
+        self.connections_to      = self.this_connections_to #self.connections_to = len(self.receiving)
+        self.this_connections_to = 0
+        self.receiving           = 0                        #self.receiving = []
+
+        return calc, send
+        
+
+
+
+
+
+
+
+
+'''
     def tanh_before_sum(self):
         after_tanh = [ self.tanh(self.bias) ]
         for value in self.receiving:
@@ -98,32 +148,7 @@ class Neuron:
             self.value = 1.0
         else: 
             self.value = -1.0
-
-
-
-
-
-
-    # updates self.value
-    # -------------------
-    def calculate_value(self):
-        # chosen activation function
-        self.tanh_after_sum()
-
-        # reset receiving list for next calculation
-        self.connections_to      = self.this_connections_to
-        self.this_connections_to = 0
-        self.receiving           = 0
-
-        #self.connections_to = len(self.receiving)
-        #self.receiving = []
-
-
-
-
-
-
-
+'''
 
 
 

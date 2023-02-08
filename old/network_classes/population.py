@@ -23,6 +23,7 @@ class Population:
 		self.scores = []
 		self.base_scores = []
 		self.test = []
+		self.weight_scores = []
 		
 		# for confidence scoring
 		# -----------------------
@@ -37,6 +38,7 @@ class Population:
 			self.base_scores.append( 0 )
 			self.confidence_scores.append( [0,0,0,0] )
 			self.test.append([])
+			self.weight_scores.append( 0 )
 
 
 		# Statistics
@@ -64,6 +66,8 @@ class Population:
 		self.time_creating_threads 	= 0
 		self.time_starting_threads	= 0
 		self.time_joining_threads	= 0
+
+		self.time_weight_scoring = 0
 
 
 
@@ -155,15 +159,16 @@ class Population:
 			post_tanh = (1/2) * log((1+abs_output)/(1-abs_output)) 
 
 		# try increasing it
-		correct_score   = 1.40**post_tanh
-		incorrect_score = 1.60**post_tanh
+		#correct_score   = 1.40**post_tanh
+		#incorrect_score = 1.40**post_tanh
+		score = 1.40**post_tanh
 
 		# assigning scores
 		# -----------------
 		# right
 		if (solution > 0 and output > 0) or (solution <= 0 and output <= 0):
 			#self.base_scores[agent_index] += 1
-			self.scores[agent_index]      += correct_score 
+			self.scores[agent_index]      += score
 			#self.test[agent_index].append(correct_score + 1)
 			# conf list
 			#if abs_output > 0.5: 	self.confidence_scores[agent_index][0] += 1
@@ -171,13 +176,48 @@ class Population:
 
 		# wrong
 		elif (solution > 0 and output <= 0) or (solution <= 0 and output > 0):
-			self.scores[agent_index] -= incorrect_score
+			self.scores[agent_index] -= score
 			#self.test[agent_index].append(-incorrect_score)
 			# conf list
 			#if abs_output > 0.5: 	self.confidence_scores[agent_index][3] += 1
 			#else: 					self.confidence_scores[agent_index][2] += 1
 
 
+
+
+	# weight scoring
+	# ---------------
+	def weight_scoring(self, agent_index):
+
+		weight_score   = 0
+
+		# all layers besides second to last
+		# ----------------------------------
+		impact = 15.0
+		for i in range(len(self.agents[agent_index].layers)-1):
+			layer_weight = 0
+			for neuron in self.agents[agent_index].layers[i]:
+				for weight in neuron.weights:
+					layer_weight += abs(weight)
+
+			weight_score += (layer_weight*impact)/len(self.agents[agent_index].layers[i])
+
+		
+		# connections to final layer
+		# ---------------------------
+		final_weight = 0
+		final_impact = 40.0
+		for neuron in self.agents[agent_index].layers[-2]:
+			for weight in neuron.weights:
+				final_weight += weight**2
+
+		weight_score += (final_weight*final_impact)/len(self.agents[agent_index].layers[-2])
+
+
+		# set agent weight score and return
+		# ----------------------------------
+		self.weight_scores[agent_index] = weight_score
+		return weight_score
 
 
 
@@ -214,16 +254,11 @@ class Population:
 					# FIRST way around
 					self.agents[i].set_inputs(inputs[current])
 					first_test, calc_time, send_time = self.agents[i].calculate_value()
-					#self.time_calculating_values += calc_time
-					#self.time_sending_values     += send_time
 
 					# SECOND way around
 					self.agents[i].set_inputs(inputs[current+1])
 					second_test, calc_time, send_time = self.agents[i].calculate_value()
-					#self.time_calculating_values += calc_time
-					#self.time_sending_values     += send_time
 
-					
 					# final decision (for the final decision we will use the first way around)
 					output = (first_test - second_test)
 
@@ -235,16 +270,13 @@ class Population:
 					# iterate j an extra value since we use two per loop
 					current += 2
 
+
+				# Weight Decay
+				# -------------  
+				self.scores[i] -= self.weight_scoring(i)
+
 				
-				if i == 0 and show_scores:
-					uniques = {}
-					for score in self.test[i]:
-						rounded = round(score, 1)
-						if rounded in uniques: uniques[rounded] += 1
-						else:                  uniques[rounded]  = 1 
-					
-					for entry in uniques.keys():
-						print( "{:>6} - {}".format(entry, uniques[entry]) )
+
 
 
 
@@ -256,7 +288,7 @@ class Population:
 		for i in range(len(self.agents)):
 			
 
-			if self.base_scores[i] == 0: # only re-test if the score was reset
+			if self.scores[i] == 0: # only re-test if the score was reset
 
 				current = 0
 				for j in range( len(inputs)//2 ):
@@ -297,6 +329,14 @@ class Population:
 					current += 2
 
 				self.num_calculations += 1
+
+
+				# Weight Decay
+				# -------------
+				weight_scoring_time = time()
+				self.scores[i] -= self.weight_scoring(i)
+				self.time_weight_scoring += (time()-weight_scoring_time)
+
 
 		self.time_threading += (time()-threading_time)
 
@@ -444,12 +484,13 @@ class Population:
 				survivors += sample
 		self.time_selecting_survivors += (time()-selecting_surviors_time)
 
+
 		self.time_splitting_population += (time()-split_population_time)
 		return survivors
 
 
 
-	def create_clones(self, survivor_indicis):
+	def create_clones(self, survivor_indicis, clones_per=1):
 		# create new list of agents
 		new_agents = list(range( len(self.agents) ))
 
@@ -458,8 +499,10 @@ class Population:
 
 		clones = []
 		for index in survivor_indicis:
-			new_agents[index]         = self.agents[index]   # original
-			clones.append(copy.deepcopy(self.agents[index])) # clone
+			new_agents[index] = self.agents[index]   # original
+			for i in range(clones_per):
+				clone = self.agents[index].agent_copy()  # clone
+				clones.append( clone )	#clones.append(copy.deepcopy(self.agents[index])) # clone
 
 		self.time_cloning += (time() - clone_time)
  
@@ -477,6 +520,7 @@ class Population:
 
 				mutation_time = time()
 				new_agents[i].mutate()
+				new_agents[i].mutate()
 				self.time_mutating += (time()-mutation_time)
 
 
@@ -486,8 +530,8 @@ class Population:
 
 
 	def evolution_step(self, reset_confidence_scores=True):
-		survivors = self.split_population()
-		self.create_clones(survivors)
+		survivors = self.split_population(survivor_percentage=0.25)
+		self.create_clones(survivors, clones_per=3)
 		
 
 

@@ -45,28 +45,31 @@ class Agent:
 
 
     '''
-    def __init__(self, num_inputs):
+    def __init__(self, num_inputs, layers=[]):
+        self.num_inputs = num_inputs
 
         # Species Creation Info
         # ----------------------
         self.starting_layers      =  3
-        self.starting_neurons     =  int( num_inputs / 1.50 )
+        self.starting_neurons     =  int(num_inputs * 0.75)
         self.starting_connections =  4
 
-        self.bias_range   = 1.0
-        self.weight_range = 1.0
+        self.min_layer_neurons = int(num_inputs * 0.5)
 
-        self.max_bias   = 3.0
+        self.bias_range   = 0.75
+        self.weight_range = 0.75
+
+        self.max_bias   = 5.0
         self.max_weight = 3.0
 
         # Species Mutation Info
         # ----------------------
-        self.bias_mutation_range   = 0.5
-        self.weight_mutation_range = 0.5
+        self.bias_mutation_range   = 0.25
+        self.weight_mutation_range = 0.50
 
-        self.bias_mutation_chance   = 0.80
+        self.bias_mutation_chance   = 0.50
         self.weight_mutation_chance = 0.80
-        self.mut_connection_chance  = 0.60
+        self.mut_connection_chance  = 0.40
         self.mut_neuron_chance      = 0.30
 
 
@@ -77,57 +80,58 @@ class Agent:
 
 
 
+
         # Layers
         # ---------------------------------------------------
         # ---------------------------------------------------
         # going to leave input layer as a list still
         # for others, needs to be dictionary
         # * using: new_neuron_id(self, layer_index)
+        self.layers = layers
 
-        self.layers = []
+        # if no input for layers given
+        # -----------------------------
+        if len(self.layers) == 0:
 
-
-        # input layer
-        # ------------
-        self.layers.append( {} )
-        for j in range(num_inputs):
-            self.add_new_neuron(0, add_connections=False)
-
-
-        # middle layers
-        # --------------
-        for i in range(self.starting_layers):
-            # create empty dict for the new layerand fill empty dict with neurons
-            self.layers.append( {} )
-            # layer index of this layer will always be i+1 because the input layer is already in
-            for j in range(self.starting_neurons):
-                self.add_new_neuron(i+1, add_connections=False)
-
-        
-        # final layer
-        # ------------
-        self.layers.append( {} )
-        self.layers[-1]["final_key"] = Neuron(0)
+            # input layer
+            # ------------
+            self.layers.append( [] )
+            for j in range(num_inputs):
+                self.add_new_neuron(0, add_connections=False)
 
 
-        # connections
-        # ------------
-        # (all but the final two layers)
-        for i in range( len(self.layers)-2 ):
-            for neuron in self.layers[i].values():
-                for j in range(self.starting_connections):
-                    # new connections in ONLY the following layer, or all following layers besides the FINAL layer
-                    if i == 0:
-                        self.new_connection(neuron, (i+1,i+1))                  # only the next
-                    else:
-                        self.new_connection(neuron, (i+1,i+1))                 # only the next
-                        #self.new_connection(neuron, (i+1,len(self.layers)-2))   # all but final layer
+            # middle layers
+            # --------------
+            for i in range(self.starting_layers):
+                self.layers.append( [] ) # create empty dict for the new layerand fill empty dict with neurons
+                for j in range(self.starting_neurons):
+                    self.add_new_neuron(i+1, add_connections=False) # layer index of this layer will always be i+1 because the input layer is already in
+
+            
+            # final layer
+            # ------------
+            self.layers.append( [] )
+            self.layers[-1].append(Neuron(0))
 
 
-        # add connections to the final neuron
-        for neuron in self.layers[-2].values():
-            neuron.sending.append( [(-1,"final_key"), 1.0] )
+            # connections
+            # ------------
+            # (all but the final two layers)
+            for i in range( len(self.layers)-2 ):
+                for neuron in self.layers[i]:
+                    for j in range(self.starting_connections):
+                        # new connections in ONLY the following layer, or all following layers besides the FINAL layer
+                        if i == 0:
+                            self.new_connection(neuron, (i+1,i+1))                  # only the next
+                        else:
+                            self.new_connection(neuron, (i+1,i+1))                 # only the next
+                            #self.new_connection(neuron, (i+1,len(self.layers)-2))   # all but final layer
 
+
+            # add connections to the final neuron
+            for neuron in self.layers[-2]:
+                neuron.sending.append( self.layers[-1][0] )
+                neuron.weights.append( random.uniform(-self.weight_range, self.weight_range) )
 
 
 
@@ -160,11 +164,8 @@ class Agent:
         #total_size += getsizeof(self.time_deleting)
 
         for layer in self.layers:
-            keys    = list( layer.keys()   )
-            neurons = list( layer.values() )
-            for i in range(len(keys)):
-                total_size += getsizeof( keys[i]    )
-                total_size += getsizeof( neurons[i] )
+            for neuron in layer:
+                total_size += getsizeof( neuron )
         
         return total_size
 
@@ -175,21 +176,17 @@ class Agent:
         # ------------
         all_layers_size = 0
         layers_out = ""
-        for j in range(len(self.layers)):
-            layer   = self.layers[j]
-            keys    = list( layer.keys()   )
-            neurons = list( layer.values() )
+        for i in range(len(self.layers)):
 
             layer_size = 0
-            for i in range(len(keys)):
-                layer_size += getsizeof( keys[i]    )
-                layer_size += getsizeof( neurons[i] )
+            for j in range(len(self.layers[i])):
+                layer_size += getsizeof( self.layers[i][j] )
 
-            avg_neuron_size = round( (layer_size/len(layer))/1024 , 2)
+            avg_neuron_size = round( (layer_size/len(self.layers[i]))/1024 , 2)
 
             #                   mut_neuron_chance       {:>8}
             #                                           --------    --------    --------
-            layers_out      += "layer[{}]                {:>8}    {:>8}    {:>8} \n".format(j, round(layer_size / 1024, 2), len(layer), avg_neuron_size)
+            layers_out      += "layer[{}]                {:>8}    {:>8}    {:>8} \n".format(i, round(layer_size / 1024, 2), len(self.layers[i]), avg_neuron_size)
             all_layers_size += layer_size
 
 
@@ -274,6 +271,37 @@ mut_neuron_chance       {:>8}
 
 
 
+#########################################################################################################################
+#                                             Custom Cloning/Copying                                                    #
+#########################################################################################################################
+
+    def agent_copy(self):
+        # create new layers and connections map
+        new_layers = []
+        for layer in self.layers:
+            new_layers.append( [] )
+        
+        # copy each layer and neuron
+        for i in reversed(range(len(self.layers))): # for layer in...
+            for j in range(len(self.layers[i])):    # for neuron in...
+
+                # create neuron copy
+                new_neuron = self.layers[i][j].neuron_copy()
+                
+                # copy its connection pointers
+                for target in self.layers[i][j].sending: # for connection in...
+                    for k in range(len(self.layers[i+1])):
+                        # check where in the layers each connection is pointing and copy it
+                        if target is self.layers[i+1][k]:
+                            new_neuron.sending.append( new_layers[i+1][k] )
+
+                # append finished neuron to new layers list
+                new_layers[i].append(new_neuron)
+
+        # return agent using the newly created layers
+        return Agent(self.num_inputs, layers=new_layers)
+
+
 
 #########################################################################################################################
 #                                             Calculating Values                                                        #
@@ -290,27 +318,21 @@ mut_neuron_chance       {:>8}
         time_sending_values     = 0
 
         for i in range(len(self.layers)):
-            layer = self.layers[i]
-            for neuron in list(layer.values()):
+            for neuron in self.layers[i]:
 
                 # first calculate the final value
-                if i != 0:
-                    value_calculation_time = time()
-                    neuron.calculate_value()
-                    time_calculating_values += (time()-value_calculation_time)
+                #sending_to_connections_time = time()
+                #value_calculation_time      = time()
 
-                # next send that value to all of the connections
-                sending_to_connections_time = time()
-                value = neuron.value
-                for connection in neuron.sending:
-                    weighted_value = connection[1] * value
-                    self.layers[ connection[0][0] ][ connection[0][1] ].receiving += value       #.receiving.append(value)
-                    self.layers[ connection[0][0] ][ connection[0][1] ].this_connections_to += 1
+                if i != 0:  calc, send = neuron.calculate_value()
+                else:       calc, send = neuron.send_value()
 
-                time_sending_values += (time()-sending_to_connections_time)
+                time_calculating_values += calc
+                time_sending_values += send
 
         # return final neurons value
-        return self.layers[-1]["final_key"].value, time_calculating_values, time_sending_values
+        return self.layers[-1][0].value, time_calculating_values, time_sending_values
+
 
 
     # set new inputs for a calculation
@@ -321,14 +343,8 @@ mut_neuron_chance       {:>8}
             print("Error: wrong number of inputs; agent takes {} inputs but received {} values".format( len(self.layers[0]), len(new_inputs) ))
 
         # setting the inputs
-        input_layer = list(self.layers[0].values())
         for i in range(len(new_inputs)):
-            input_neuron = input_layer[i]
-            input_value  = new_inputs[i]
-            # broken up just in case i wanted to do somethign with the inputs first
-            #input_neuron.receiving.append(input_value)
-
-            input_neuron.value = input_value # for an experiment with non-tanh output from input neurons
+            self.layers[0][i].value = new_inputs[i] # for an experiment with non-tanh output from input neurons
 
 
 
@@ -350,71 +366,48 @@ mut_neuron_chance       {:>8}
         return Neuron(new_bias)
 
 
-    # Generate new neuron address key
-    def new_neuron_id(self, layer_index):
-        # start with blank key so we can enter the loop
-        as_str = ""
-        while as_str == "" or as_str in list(self.layers[layer_index].keys()):
-            # generate random key using an integer into a string
-            as_int = random.randint(0,99)
-            as_str = str(as_int)
-
-        # return the newly created key
-        return as_str
-
-
     # Create new FULL neuron and add it to the layers (also adds initial connections to it)
     def add_new_neuron(self, layer_index, add_connections=True):
         # create base neuron and a key for it
         base_neuron = self.new_neuron()
-        address_key = self.new_neuron_id(layer_index)
-        self.layers[layer_index][address_key] = base_neuron
+        #address_key = self.new_neuron_id(layer_index)
+        #self.layers[layer_index][address_key] = base_neuron
+        self.layers[layer_index].append(base_neuron)
 
         # we only want to add connections sometimes, can specify in function call
         if add_connections:
             for j in range(self.starting_connections):
                 # new connections in ONLY the following layer, or all following layers besides the FINAL layer
                 self.new_connection(base_neuron, (layer_index+1,layer_index+1))     # only the next
-                #self.new_connection(base_neuron, (layer_index+1,len(self.layers)-2))    # all but final layer
 
 
 
 
     # Deleting Neurons
     def delete_neuron(self, address):
-        '''
-        * address = (i, "key_string")
-        * need to delete all connections and the neuron itself
-
-        '''
         # delete all connections TO this neuron
         # --------------------------------------
-        # look for all existing connections to this neuron and remove them
-        #              first layer,      layer being deleted
         #start_time = time()
-        for i in range(0, address[0]):
-            for neuron in self.layers[i].values():
+        for i in range(0, len(self.layers)-2):
+            for neuron in self.layers[i]:
                 # list to delete later
                 to_pop = []
                 for j in range(len(neuron.sending)):
-                    # neuron.sending[j] -> (address, weight)
-                    if neuron.sending[j][0][0] == address[0] and neuron.sending[j][0][1] == address[1]:
-                        to_pop.append(j)
 
-                # delete all marked connections
-                # start from the highest index or else they will change after each one is popped
+                    if neuron.sending[j] is self.layers[address[0]][address[1]]:
+                        to_pop.append(j)
+                        break
+
+                # delete all marked connections, start from the highest index or else they will change after each one is popped
                 to_pop.reverse()
                 for index in to_pop:
-                    to_delete = neuron.sending.pop(index)
-                    del to_delete
+                    neuron.sending.pop(index)
+                    neuron.weights.pop(index)
 
 
         # delete the actual neuron
         # -------------------------
-        # self.layers[address[0]]   -> correct dictionary from the layer list
-        # address[1]                -> string key to the dictionary for this neuron
-        to_delete = self.layers[address[0]].pop(address[1])
-        #print(to_delete)
+        self.layers[address[0]].pop(address[1])
         
         #self.time_deleting += (time()-start_time)
 
@@ -426,28 +419,27 @@ mut_neuron_chance       {:>8}
     # ----------------------------
 
     # create connection
+
     def new_connection(self, neuron, layer_range):
         # get a list of available connection choices
         available_addresses = []
         for i in range(layer_range[0],layer_range[1]+1):
-            for key in self.layers[i].keys(): 
-                address = [i,key] # for each possible address
-                not_in  = True    # check if it is already in this neurons sending list
-                for existing_connection in neuron.sending:
-                    if address == existing_connection[0]: not_in = False
-                # if not in the sending list, add to possible connections
-                if not_in: available_addresses.append(address)
+
+            for neuron_pointer in self.layers[i]:
+                if neuron_pointer not in neuron.sending: available_addresses.append(neuron_pointer)
 
         # if there are no new possible connections, do nothing
         # otherwise, pick an address from the list at random to connect to
         if   len(available_addresses) == 0: return
-        elif len(available_addresses) == 1: selected_address_index = 0 # i dont think randint works with 0,0 range
+        elif len(available_addresses) == 1: selected_address_index = 0
         else:                               selected_address_index = random.randint(0, len(available_addresses)-1)
 
         # finish creating new connection
         address = available_addresses[selected_address_index]
         new_weight = random.uniform(-self.weight_range, self.weight_range)
-        neuron.sending.append( [address, new_weight] )
+        neuron.sending.append( address    )
+        neuron.weights.append( new_weight )
+
 
 
 
@@ -457,6 +449,7 @@ mut_neuron_chance       {:>8}
         if len(neuron.sending) > 1:
             selected_connection = random.randint(0, len(neuron.sending)-1)
             neuron.sending.pop( selected_connection )
+            neuron.weights.pop( selected_connection )
 
 
 
@@ -477,13 +470,14 @@ mut_neuron_chance       {:>8}
             # delete any neurons with 0 connections to
             # -----------------------------------------
             addresses_to_delete = []
-            for key in self.layers[i].keys():
-                if self.layers[i][key].connections_to == 0 and delete_neurons:
-                    addresses_to_delete.append( [i,key] )
+            for j in range(len(self.layers[i])):
+                if self.layers[i][j].connections_to == 0 and delete_neurons:
+                    addresses_to_delete.append( [i,j] )
 
             # delete addresses in a different loop so dictionary doesn't change size during iteration
+            addresses_to_delete.reverse()
             for address in addresses_to_delete:
-                if len(self.layers[i]) > int(self.starting_neurons // 3):
+                if len(self.layers[i]) > self.min_layer_neurons:
                     self.delete_neuron( address )
 
 
@@ -491,22 +485,20 @@ mut_neuron_chance       {:>8}
             # -------------------
             if self.mut_neuron_chance > random.uniform(0, 1):
                 if 0.5 > random.uniform(0, 1): # 50/50 to add or delete
-                    if len(self.layers[i]) < (1.25*len(self.layers[0])):
+                    if len(self.layers[i]) < (1.5*len(self.layers[0])):
                         self.add_new_neuron(i)
                 else:
                     # * skip a deletion if one was already deleted
-                    if len(self.layers[i]) > int(self.starting_neurons // 3) and len(addresses_to_delete) == 0 and delete_neurons:
-                        selected_index  = random.randint( 0, len(self.layers[i])-1 )
-                        selected_neuron = list(self.layers[i].keys())[selected_index] # need to turn the index # into the key
-                        address = [i, selected_neuron]
-                        self.delete_neuron(address)
+                    if len(self.layers[i]) > self.min_layer_neurons and len(addresses_to_delete) == 0 and delete_neurons:
+                        selected_index = random.randint(0, len(self.layers[i])-1)
+                        self.delete_neuron( [i,selected_index] )
 
 
 
         # all layers besides final 2
         # ---------------------------
         for i in range( len(self.layers)-2 ):
-            for neuron in self.layers[i].values(): # for each neuron in
+            for neuron in self.layers[i]: # for each neuron in
 
                 # add/del connection
                 # -------------------
@@ -526,7 +518,7 @@ mut_neuron_chance       {:>8}
         # ---------------------------
         for i in range( len(self.layers)-1 ):
             # for each neuron in
-            for neuron in self.layers[i].values():
+            for neuron in self.layers[i]:
 
                 # mutate bias
                 # ------------
@@ -534,25 +526,19 @@ mut_neuron_chance       {:>8}
                     neuron.bias += random.uniform(-self.bias_mutation_range, self.bias_mutation_range)
 
                     # limit the max/min?
-                    if neuron.bias > self.max_bias: 
-                        neuron.bias = self.max_bias
-
-                    elif neuron.bias < -self.max_bias: 
-                        neuron.bias = -self.max_bias
+                    if   neuron.bias >  self.max_bias: neuron.bias =  self.max_bias
+                    elif neuron.bias < -self.max_bias: neuron.bias = -self.max_bias
 
                 # mutate connection weight
                 # -------------------------
-                for connection in neuron.sending: # for each connection in
+                for j in range(len(neuron.weights)): # for each connection in
 
                     if self.weight_mutation_chance > random.uniform(0, 1):
-                        connection[1] += random.uniform(-self.weight_mutation_range, self.weight_mutation_range)
+                        neuron.weights[j] += random.uniform(-self.weight_mutation_range, self.weight_mutation_range)
                         
                         # limit the max/min?
-                        if connection[1] > self.max_weight: 
-                            connection[1] = self.max_weight
-
-                        elif connection[1] < -self.max_weight: 
-                            connection[1] = -self.max_weight
+                        if   neuron.weights[j] >  self.max_weight: neuron.weights[j] =  self.max_weight
+                        elif neuron.weights[j] < -self.max_weight: neuron.weights[j] = -self.max_weight
 
 
 
@@ -656,7 +642,7 @@ mut_neuron_chance       {:>8}
             total_connections_to   = 0
             total_connections_from = 0
 
-            layer_neurons = list(self.layers[i].values())
+            layer_neurons = self.layers[i]
             for j in range(len(layer_neurons)):
                 neuron = layer_neurons[j]
 
@@ -667,14 +653,11 @@ mut_neuron_chance       {:>8}
                 # average weight
                 total_connection_weight = 0
                 for k in range(len(neuron.sending)):
-                    total_connection_weight += abs( neuron.sending[k][1] )
+                    total_connection_weight += neuron.weights[k]
 
-                if len(neuron.sending) == 0: 
-                    average_connection_weight = 0
-                else: 
-                    average_connection_weight = round(total_connection_weight/len(neuron.sending), 2)
+                if len(neuron.sending) == 0: average_connection_weight = 0
+                else:                        average_connection_weight = round(total_connection_weight/len(neuron.sending), 2)
                 
-
 
                 if j < 14:
                     # add to the lines

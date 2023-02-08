@@ -39,37 +39,31 @@ team1 season averages against
 
 
 
-W
----
-2, 
-3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
-(14)
-
-L
----
-4, 
-5, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33
-(14)
 
 
 
-dictionary:
------------
-key
-	* teamID
-
-value 
-	* list with an int and two other lists
-		- the int is number of games
-		- list of their averages
-		- list with opponent averages
-	* use number of games to save running average
 
 
 
-team1 id
-team2 id
-team1 win (1 or 0)
+
+Apply quantile transformation to transform the team_info to normal distribution.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -173,6 +167,172 @@ use threading for progress bar
 	after time limit reached say: 
 	"time limit reached, finishing current step"
 	"last step completed, running testing for report"
+
+
+
+
+matrix multiplecation
+----------------------
+
+neurons gain:
+	self.sending = [ list of neurons ]	
+	self.weights = [list of connection weights] (numpy array)
+
+
+def send_value(self):
+	weighted_values = self.weights.matrix_multiply(self.value) 
+
+	for i in range(len(self.sending)):
+		self.sending[i].receiving += weighted_values[i]
+
+
+
+
+functions
+----------
+
+* set_pointers
+
+* erase_pointers
+	- actually instead of erase pointers, just write a custom version of the copy() function
+	- for neuron class copy function, just copy everything besides the sending list
+
+
+def erase_pointers(self):
+	# create a list of neuron (layers_index, index) addresses for each neuron in each layer
+	for each neuron in each layer
+		erase its sending list neurons and create a list of neuron addresses for each neuron in the main agent
+
+
+def set_pointers(self):
+	# go through the layer addresses list and re-assign the sending connections using the address list
+	# when done, erase the list from both the original agent and the clone
+
+
+
+
+
+
+
+
+
+
+
+for each column take the highest value, divide everything by that to get the "normalized" versions
+
+
+change so game by game data was the teams average stats and average ranking AT THE TIME of that game
+average ranking of opponents
+
+
+
+
+
+
+
+layer 0 values = [ 0, 1, 2, 3, 4 ]
+layer 0 weight = [ 0, 1, 2, 3, 4 ]
+layer 1 values = [ 0, 1, 2, 3, 4 ] -> this line = previous two multipled by eachother
+
+layer 1 weight = [ 0, 1, 2, 3, 4 ]
+layer 2 values = [ 0, 1, 2, 3, 4 ]
+
+
+
+
+eliminate outliers
+
+
+inputs is each teams average stats at the time of the game
+answers is the game stats
+
+
+
+
+
+
+
+
+
+
+
+
+
+data creation is finished
+
+
+* copy everything into a new folder
+
+
+
+
+52 inputs
+
+26 outputs
+
+
+
+
+
+
+
+
+
+
+
+change to static # of connections
+static # of layers
+static # of neurons per layer
+
+
+52 inputs
+26 outputs
+
+start with:
+52
+26
+26
+26
+everything connected
+
+
+layers
+-------
+
+layer[0]:
+	52 long    - list of neuron values
+	52*26 long - list of connection weights
+	52*27 long - next layer values pre-op (including biases, each at the 0th index for their segment)
+
+layer[1]:
+	26 long    - list of neuron values
+	26*26 long - list of connection weights
+	26*27 long - next layer values pre-op (including biases, each at the 0th index for their segment)
+...
+
+layer[-1]:
+	26 long - list of neuron values
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+64
+16
+16
+16
+10
+
+
 
 
 

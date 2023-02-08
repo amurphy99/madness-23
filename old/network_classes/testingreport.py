@@ -79,6 +79,7 @@ class TestingReport:
 		# ------------
 		self.base_scores 		= self.population.base_scores
 		self.conf_scores 		= self.population.scores
+		self.weight_scores		= self.population.weight_scores
 		self.conf_scores_list 	= self.population.confidence_scores
 
 
@@ -199,8 +200,8 @@ accuracy   {:-8.2f}%  {:-8.2f}%  {:-8.2f}%
 
 		# print out final scores
 		# -----------------------
-		print("id - [ c r, nc r, nc w,  c w] | ovrl |  conf  ({})".format( round(self.current_split_max_conf) ))
-		print("---------------------------------------------")
+		print("id - [ c r, nc r, nc w,  c w] | ovrl | score |  conf | weight  ({})".format( round(self.current_split_max_conf) ))
+		print("--------------------------------------------------------------")
 		#       0 - [2030,  209,  202, 1295] | 2974 | 2239
 
 		for i in range(len(self.base_scores)):
@@ -208,7 +209,12 @@ accuracy   {:-8.2f}%  {:-8.2f}%  {:-8.2f}%
 		    conf = self.conf_scores_list[i]
 		    conf_scores_string = "[{:>4}, {:>4}, {:>4}, {:>4}]".format(conf[0], conf[1], conf[2], conf[3])
 		    
-		    print( "{:>2} - {} | {:>4} | {:>5}".format(i, conf_scores_string, self.base_scores[i], round(self.conf_scores[i])) )
+		    print( "{:>2} - {} | {:>4} | {:>5} | {:>5} | {:>6} ".format(i, 
+																    	conf_scores_string, 
+																    	self.base_scores[i], 
+																    	round(self.conf_scores[i]), 
+																    	round(self.conf_scores[i]+self.weight_scores[i]),
+																    	round(-self.weight_scores[i]) ))
 
 
 
@@ -294,8 +300,11 @@ selecting   {9:>6}s  {10:>6}%
 		tanh_time   = round(self.population.time_tanh_scoring / divided_by_time, 2 )
 		tanh_time_p = round( (tanh_time/total_scoring_time)*100, 2 )
 
+		weight_score = round(self.population.time_weight_scoring / divided_by_time, 2 )
+		weight_score_p = round( (weight_score/total_scoring_time)*100, 2 )
 
-		accounted_for   = round(sum([calc_time, send_time, set_time, tanh_time]), 2)
+
+		accounted_for   = round(sum([calc_time, send_time, set_time, tanh_time, weight_score]), 2)
 		accounted_for_p = round( (accounted_for/total_scoring_time)*100, 2 )
 
 
@@ -326,6 +335,7 @@ calc val    {1:>6}s  {2:>6}%
 send time   {3:>6}s  {4:>6}%
 set time    {5:>6}s  {6:>6}%
 inv tanh    {7:>6}s  {8:>6}%
+weight      {19:>6}s  {20:>6}%
             -------  -------
 acc for     {9:>6}s  {10:>6}%
             -------  -------
@@ -343,7 +353,9 @@ joining     {17:>6}s  {18:>6}%
            thread_time, 	thread_time_p, 
            creating, 		creating_p, 
            starting, 		starting_p, 
-           joining, 		joining_p
+           joining, 		joining_p,
+
+           weight_score, weight_score_p
            ))
 
 
@@ -432,6 +444,7 @@ joining     {17:>6}s  {18:>6}%
 		# score lists
 		self.base_scores 		= self.population.base_scores
 		self.conf_scores 		= self.population.scores
+		self.weight_scores		= self.population.weight_scores
 		self.conf_scores_list 	= self.population.confidence_scores
 
 		# prev values
@@ -484,8 +497,8 @@ joining     {17:>6}s  {18:>6}%
 		self.total_timer += self.current_split_timer
 		self.total_steps += self.current_split_steps
 
-		self.total_steps_sec = self.current_split_steps_sec
-		self.total_secs_step = self.current_split_secs_step
+		self.total_steps_sec = round(self.current_split_steps/self.current_split_timer, 2)
+		self.total_secs_step = round(self.current_split_timer/self.current_split_steps, 2)
 
 		self.total_evolution_timer += self.current_split_evolution_timer
 		self.total_scoring_timer   += self.current_split_scoring_timer

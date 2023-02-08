@@ -15,7 +15,7 @@ import math
 
 
 #########################################################################################################################
-#										PARSE DATA FROM BASIC STATS INTO A DF											#
+#                                       PARSE DATA FROM BASIC STATS INTO A DF                                           #
 #########################################################################################################################
 
 
@@ -38,6 +38,21 @@ def stats_for_season(stats_df, season, print_report=False):
     for expected_column in columns:
         temp = given_df[expected_column].tolist()
         df_columns.append(temp)
+
+
+
+    # Normalizing each input stat to 0-1
+    # -----------------------------------
+    max_columns = []
+    for column in df_columns:
+        if type(column[0]) != str:
+            column_max = max(column)
+            max_columns.append(column_max)
+            for i in range(len(column)):
+                column[i] = (column[i]/column_max)
+
+
+
 
 
     # change df to list of rows
@@ -173,8 +188,8 @@ def stats_for_season(stats_df, season, print_report=False):
             line0 = "{:>4}: [".format( key )
             line1 = "{:>4}: [".format( key )
             for j in range(len(row[1])):
-                line0 += "{:>5}, ".format(row[1][j])
-                line1 += "{:>5}, ".format(row[2][j])
+                line0 += "{:>5}, ".format( round(row[1][j], 2) )
+                line1 += "{:>5}, ".format( round(row[2][j], 2) )
             
             line0 = line0[:-2] + "] - {} values".format(len(row[1]))
             line1 = line1[:-2] + "] - {} values".format(len(row[1]))
@@ -195,8 +210,296 @@ def stats_for_season(stats_df, season, print_report=False):
 
 
 
+
+# Get each teams stats from a given season
+# -----------------------------------------
+def inputs_outputs_for_season(stats_df, season, print_report=False):
+    
+    # get just the games from the specified season
+    # ---------------------------------------------
+    given_df = stats_df[stats_df.Season == season]
+
+    # change df to list of columns
+    # -----------------------------
+    columns = given_df.columns.tolist()
+
+    # Creates list of the columns
+    df_columns = []
+    for expected_column in columns:
+        temp = given_df[expected_column].tolist()
+        df_columns.append(temp)
+
+
+
+    # Normalizing each input stat to 0-1
+    # -----------------------------------
+    max_columns = []
+    for column in df_columns:
+        column_max = max(column)
+        max_columns.append(column_max)
+        if type(column[0]) != str:
+            for i in range(len(column)):
+                column[i] = (column[i]/column_max)
+
+    output_max_columns = [max_columns[3]] + max_columns[8:21].copy() + [max_columns[5]] + max_columns[21:].copy()
+
+
+
+    # change df to list of rows
+    # --------------------------
+    # Make a list of rows too
+    df_rows = []
+    for i in range(len(df_columns[0])):
+        new_row = []
+        for j in range(len(df_columns)):
+            new_row.append(df_columns[j][i])
+        df_rows.append(new_row)
+
+
+
+   
+    # game solutions and team dictionary
+    # -----------------------------------
+
+    # inputs and solutions
+    inputs      = []
+    solutions   = []
+
+
+    # team1 ID, team2 ID, team1 win? (1 or 0)
+    game_solutions = []
+    
+
+    # key = teamID
+    # value = [count, team]
+    team_dictionary = {}
+
+
+    for i in range(len(df_rows)):
+        row = df_rows[i]
+
+        WTeam_stats = [row[3]] + row[ 8:21].copy()
+        LTeam_stats = [row[5]] + row[21:  ].copy()
+
+
+        # if both teams are in the team dictionary, create input and solution rows
+        # -------------------------------------------------------------------------
+        if row[2] in team_dictionary and row[4] in team_dictionary:
+            # for inputs
+            new_input_row_1     = []
+            new_input_row_2     = []
+
+            WTeam_inputs = team_dictionary[row[2]][1].copy() + team_dictionary[row[2]][2].copy()
+            LTeam_inputs = team_dictionary[row[4]][1].copy() + team_dictionary[row[4]][2].copy()
+
+            # for solutions
+            new_solutions_row_1 = []
+            new_solutions_row_2 = []
+
+            # for updating dictionaries
+            W_games = team_dictionary[row[2]][0]
+            L_games = team_dictionary[row[4]][0]
+
+            # 26 long
+            for j in range(len(WTeam_inputs)):
+                # team FOR is positive
+                if j < (len(WTeam_inputs)/2)-1: # half
+
+                    # input and solution rows
+                    # ------------------------
+                    new_input_row_1.append(  WTeam_inputs[j]-LTeam_inputs[j] )
+                    new_input_row_2.append( -WTeam_inputs[j]+LTeam_inputs[j] )
+
+                    new_solutions_row_1.append(WTeam_stats[j])
+                    new_solutions_row_2.append(LTeam_stats[j])
+
+                    # Update team dictionaries
+                    # -------------------------
+                    # WTeam
+                    team_dictionary[row[2]][1][j] = ((W_games * team_dictionary[row[2]][1][j]) + WTeam_stats[j])/(W_games+1)
+                    team_dictionary[row[2]][2][j] = ((W_games * team_dictionary[row[2]][2][j]) + LTeam_stats[j])/(W_games+1)
+
+                    # LTeam
+                    team_dictionary[row[4]][1][j] = ((L_games * team_dictionary[row[4]][1][j]) + LTeam_stats[j])/(L_games+1)
+                    team_dictionary[row[4]][2][j] = ((L_games * team_dictionary[row[4]][2][j]) + WTeam_stats[j])/(L_games+1)
+
+                # team AGAINST is positive
+                else:
+                    # input and solution rows
+                    # ------------------------
+                    new_input_row_1.append( -WTeam_inputs[j]+LTeam_inputs[j] )
+                    new_input_row_2.append(  WTeam_inputs[j]-LTeam_inputs[j] )
+
+                    new_solutions_row_1.append(-LTeam_stats[j])
+                    new_solutions_row_2.append(-WTeam_stats[j])
+
+
+            # update game count of both teams
+            team_dictionary[row[2]][0] += 1
+            team_dictionary[row[4]][0] += 1
+
+
+        # if both teams are not in the dictionary already then just add/update them
+        # --------------------------------------------------------------------------
+        # create LTeam entry, update WTeam entry
+        elif row[2] in team_dictionary:
+            # LTeam
+            team_dictionary[row[4]] = [1, WTeam_stats, LTeam_stats]
+
+            # WTeam
+            W_games = team_dictionary[row[2]][0]
+            for j in range(len(WTeam_stats)):
+                team_dictionary[row[2]][1][j] = ((W_games * team_dictionary[row[2]][1][j]) + WTeam_stats[j])/(W_games+1)
+                team_dictionary[row[2]][2][j] = ((W_games * team_dictionary[row[2]][2][j]) + LTeam_stats[j])/(W_games+1)
+            team_dictionary[row[2]][0] += 1
+
+
+        # create WTeam entry, update LTeam entry
+        elif row[4] in team_dictionary:
+            # WTeam
+            team_dictionary[row[2]] = [1, LTeam_stats, WTeam_stats]
+            
+            # LTeam
+            L_games = team_dictionary[row[4]][0]
+            for j in range(len(LTeam_stats)):
+                team_dictionary[row[4]][1][j] = ((L_games * team_dictionary[row[4]][1][j]) + LTeam_stats[j])/(L_games+1)
+                team_dictionary[row[4]][2][j] = ((L_games * team_dictionary[row[4]][2][j]) + WTeam_stats[j])/(L_games+1)
+            team_dictionary[row[4]][0] += 1
+
+
+        # create entry for both WTeam and LTeam
+        else:
+            team_dictionary[row[2]] = [1, WTeam_stats, LTeam_stats]
+            team_dictionary[row[4]] = [1, LTeam_stats, WTeam_stats]
+
+
+
+
+    # after this loop i have:
+    # * inputs and solutions for the given year
+
+
+
+
+    # headers list
+    # -------------
+    headers_list0 = ["FGM", "FGA", "FGM3", "FGA3", "FTM", "FTA", "OR", 
+                      "DR", "Ast",   "TO",  "Stl", "Blk",  "PF"         ]
+    
+    headers_list1 = ["xFGM", "xFGA", "xFGM3", "xFGA3", "xFTM", "xFTA", "xOR", 
+                      "xDR", "xAst",   "xTO",  "xStl", "xBlk",  "xPF"        ]
+
+
+    # print report
+    # -------------
+    # ....
+
+
+
+
+
+
+
+
+    '''
+    # headers list
+    # -------------
+    headers_list0 = ["FGM", "FGA", "FGM3", "FGA3", "FTM", "FTA", "OR", 
+                      "DR", "Ast",   "TO",  "Stl", "Blk",  "PF"         ]
+    
+    headers_list1 = ["xFGM", "xFGA", "xFGM3", "xFGA3", "xFTM", "xFTA", "xOR", 
+                      "xDR", "xAst",   "xTO",  "xStl", "xBlk",  "xPF"        ]
+
+
+    
+    # print report
+    # -------------
+    if print_report:
+        print("data size: ")
+        print("-----------")
+        print("number of games for {:>} season:  {} ".format(season, len(given_df)))
+        print("number of columns in base data:   {} ".format(len(df_columns)))
+        print("number of rows:                   {} ".format(len(df_rows)))
+        
+        
+        # print column indicis
+        # ---------------------
+        preview_row = ""
+        count       = 0
+        for i in range(len(columns)):
+            temp         = "{:>3}: {}".format(i, columns[i])
+            preview_row += "{:<15}"   .format(temp)
+            count       += 1
+
+            if count > 6:
+                preview_row += ("\n")
+                count        = 0
+
+        print("\n")
+        print("column titles and indicis: ")
+        print("---------------------------")
+        print(preview_row)
+        
+
+        # print report on the collected stats
+        # ------------------------------------
+        print("\n")
+        print("base stats report: ")
+        print("-------------------")
+        print("game_solutions length:  {:>6} games".format(len( game_solutions  )))
+        print("team_dictionary length: {:>6} teams".format(len( team_dictionary )))
+        print()
+        print("team_dictionary[team_id] = [# of games played, [stats FOR totals], [stats AGAINST totals]]")
+
+        
+        # teams_dictionary preview
+        # -------------------------
+        print("\n")
+        print("example row:    ")
+        print("------------- \n")
+        
+        
+        # headers
+        header_line0 = "{:>5}   ".format("id")
+        header_line1 = "{:>5}   ".format("id")
+        for i in range(len(headers_list0)):
+            header_line0 += "{:>5}  ".format(headers_list0[i])
+            header_line1 += "{:>5}  ".format(headers_list1[i])
+
+        # data samples
+        for i in range(1):
+            key = list(team_dictionary.keys())[i]
+            row = team_dictionary[ key ]
+
+            line0 = "{:>4}: [".format( key )
+            line1 = "{:>4}: [".format( key )
+            for j in range(len(row[1])):
+                line0 += "{:>5}, ".format( round(row[1][j], 2) )
+                line1 += "{:>5}, ".format( round(row[2][j], 2) )
+            
+            line0 = line0[:-2] + "] - {} values".format(len(row[1]))
+            line1 = line1[:-2] + "] - {} values".format(len(row[1]))
+            
+            
+            print("  number of games played by team: {} \n".format(row[0]))
+            print(header_line0, "\n", line0, "\n")
+            print(header_line1, "\n", line1)
+
+        
+    # game solutions, team dict, and headers_list
+    # --------------------------------------------
+    return game_solutions, team_dictionary, [headers_list0, headers_list1]
+    '''
+
+    return inputs, solutions, output_max_columns
+
+
+
+
+
+
 #########################################################################################################################
-#													CUSTOM STATS														#
+#                                                   CUSTOM STATS                                                        #
 #########################################################################################################################
 
 
@@ -394,7 +697,7 @@ def for_and_against(team_dictionary, print_report=False):
 
 
 #########################################################################################################################
-#										FINAL PREPARATION FOR DATA AS INPUTS											#
+#                                       FINAL PREPARATION FOR DATA AS INPUTS                                            #
 #########################################################################################################################
 
 
