@@ -43,7 +43,7 @@ class Population:
 		self.l_neurons  = int(num_inputs // (3/2)) + self.l_outputs
 
 
-		self.middle_layers = 3
+		self.middle_layers = 1
 		#self.w_range       = 0.25
 		self.learning_rate = learning_rate
 

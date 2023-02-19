@@ -351,6 +351,24 @@ layer[-1]:
 
 
 
+to do for website:
+-------------------
+
+* save network state
+	- population object
+
+* save tracking variables
+	- timer
+	- accuracy
+	- cost
+	- steps
+
+* variable to end the training
+	- and/or go by training for a set period of time instead of steps
+
+
+* save data to a csv
+	- inputs AND solutions files
 
 
 
