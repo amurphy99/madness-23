@@ -375,6 +375,8 @@ to do for website:
 
 
 
+try positive and negative
+try with and without points
 
 
 
@@ -386,6 +388,95 @@ to do for website:
 
 
 
+data needed
+
+
+submission_inputs.csv
+
+
+take team stats at the time of their final games
+take every combo of team ids
+
+
+
+ideas:
+-------
+
+winstreak
+overtime games?
+
+
+instead of their opponents average,
+how did their opponent do compared to their average
+
+
+
+
+
+
+
+new version with embeddings
+
+
+4 embedding inputs
+-------------------
+coach, team
+coach, team
+
+data inputs
+------------
+location
+
+
+
+
+right now i replace input neuron values at the start
+
+pretty easily find the v-cost for the first input layer
+update the embeddings there
+
+
+2 new functions
+batch size of 1
+after every calculation, adjust the gradient descent, including the embeddings
+
+
+inputs: 
+
+steps/time, input_data, solutions, embeddings
+
+input daya comes with inputs and tells what embeddings to slot in
+
+function to create embeddings, function to update embeddings, 
+
+
+
+team_name
+
+
+
+stuff i could do:
+------------------
+* change embeddings from inputs to layer weights
+* add coach embeddings in
+* threading and ability to turn it off
+
+* you can still do batches !
+	- i think v_cost gets calculated every time, just ONLY adjust the embedding weights
+
+
+
+
+stuff for website:
+-------------------
+
+encrypt
+	* cookies
+		- flask turorial covered this i think
+	* database login/password
+		- i had info on this from class, hopefully there is still a link in my class notes
+	* escaping on sql inputs
+		- there should be a tab saved with this stuff
 
 
 
@@ -394,23 +485,18 @@ to do for website:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Azure
+DevOps
+C#
+Git
+Bachelor's degree
+JavaScript
+SharePoint
+TFS
+Restaurant experience
+TypeScript
+Communication skills
+Under 1 year
 
 
 

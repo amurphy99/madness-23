@@ -29,6 +29,7 @@ import numpy as np
 from math import exp
 from time import time
 
+import numba
 
 
 class Population:
@@ -145,8 +146,8 @@ class Population:
 
 		# weight decay
 		# -------------
-		weight_L2 = np.multiply(np.average(np.square(self.layers[-1]["weights"]), axis=1), 0.0001)
-		a1_1 = np.add(a1_1, weight_L2)
+		#weight_L2 = np.multiply(np.average(np.square(self.layers[-1]["weights"]), axis=1), 0.0001)
+		#a1_1 = np.add(a1_1, weight_L2)
 
 
 		#self.layers[-1]['b_cost'] = np.multiply(a1_1, a1_2)
@@ -166,8 +167,8 @@ class Population:
 
 			# weight decay
 			# -------------
-			weight_L2 = np.multiply(np.average(np.square(self.layers[i]["weights"]), axis=1), 0.0001)
-			a1_1 = np.add(a1_1, weight_L2)
+			#weight_L2 = np.multiply(np.average(np.square(self.layers[i]["weights"]), axis=1), 0.0001)
+			#a1_1 = np.add(a1_1, weight_L2)
 
 
 			self.layers[i]["b_cost"] = np.multiply(a1_1, a1_2)
@@ -261,7 +262,9 @@ class Population:
 				score_time = time()
 				total_cost.append(np.sum(np.square(np.subtract(output, training_solutions[i]))))
 
-				accuracy += self.check_accuracy(output, training_solutions[i])				
+				#accuracy += self.check_accuracy(output, training_solutions[i])
+				accuracy += check_accuracy_numba(output, training_solutions[i])
+				check_accuracy_numba	
 
 				scoring_time += (time()-score_time)
 
@@ -573,8 +576,24 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 
 
 
+@numba.jit(nopython=True)
+def check_accuracy_numba(output, solutions):
+	#  0: WFG%2       1: WFGA2       2: WFG%3       3: WFGA3       4: WFT%        5: WFTA      
+	#  6: WOR         7: WDR         8: WAst        9: WTO        10: WStl       11: WBlk       12: WPF
+	# 13: LFG%2      14: LFGA2      15: LFG%3      16: LFGA3      17: LFT%       18: LFTA
+	# 19: LOR        20: LDR        21: LAst       22: LTO        23: LStl       24: LBlk       25: LPF 
 
+	points_for =  2*output[ 0]*output[ 1] +  3*output[ 2]*output[ 3] +    output[ 4]*output[ 5]
+	points_aga = -2*output[13]*output[14] + -3*output[15]*output[16] + -1*output[17]*output[18]
 
+	sol_for =  2*solutions[ 0]*solutions[ 1] +  3*solutions[ 2]*solutions[ 3] +    solutions[ 4]*solutions[ 5]
+	sol_aga = -2*solutions[13]*solutions[14] + -3*solutions[15]*solutions[16] + -1*solutions[17]*solutions[18]
+
+	if points_for > 0 and points_aga < 0:
+		if   abs(points_for) > abs(points_aga) and abs(sol_for) > abs(sol_aga): return 1
+		elif abs(points_for) < abs(points_aga) and abs(sol_for) < abs(sol_aga): return 1
+
+	return 0
 
 
 
