@@ -9,7 +9,7 @@
 data_setup/data/*.csv
 data_setup/data/new/base/*.csv
 data_setup/data/new/prepped/*.csv
-data_setup/data/new/predictions/*.csv
+data_setup/data/new/prepped/predictions/*.csv
 
 # old files
 # ----------
