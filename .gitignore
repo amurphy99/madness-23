@@ -1,12 +1,37 @@
-# My stuff
-# ---------
+############
+# My stuff #                           
+############
+
 .DS_Store
-data/
+
+# .csv files with data
+# ---------------------
+data_setup/data/*.csv
+data_setup/data/new/base/*.csv
+data_setup/data/new/prepped/*.csv
+data_setup/data/new/predictions/*.csv
+
+# old files
+# ----------
+old/
+extra/
+
+network_matrix/data_prep.py
+network_matrix/data_test.ipynb
+network_matrix/testing_matrix.ipynb
+
+data_setup/data_prep.ipynb
+data_setup/logic_matrix.ipynb
+data_setup/multiple_outputs.ipynb
+data_setup/testing_data.ipynb
+data_setup/testing_matrix.ipynb
 
 
 
-# Github automatically generated stuff
-# -------------------------------------
+
+########################################
+# Github automatically generated stuff #
+########################################
 
 
 # Byte-compiled / optimized / DLL files
