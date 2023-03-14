@@ -27,6 +27,25 @@ y = actual
 - ( (y * log(p)) + ((1-y) * log(p)) )
 
 
+
+
+
+
+weights:
+loss_func * tanh_deriv(prev_layer_value*weight) * prev values
+
+biases:
+loss_func * tanh_deriv * 1
+
+
+
+
+tanh deriv = 1 - np.tanh(x)^2
+
+
+
+
+
 '''
 
 import os
@@ -44,7 +63,8 @@ import numba
 class Population:
 
 
-	def __init__(self, num_inputs, num_outputs, learning_rate=0.01):
+	def __init__(self, num_inputs, num_outputs, learning_rate=0.01, embedding_size=100):
+		np.random.seed(10)
 
 		# specifications
 		# ---------------
@@ -52,7 +72,8 @@ class Population:
 		self.l_outputs  = num_outputs
 		#self.l_neurons  = int(num_inputs // (3/2)) + self.l_outputs
 		#self.l_neurons  = int(num_inputs // (2/3)) + self.l_outputs
-		self.l_neurons  = int(num_inputs * 1.0) 
+		#self.l_neurons  = int(num_inputs * 1.0)
+		self.l_neurons  = int(embedding_size * 1.0)
 
 		self.middle_layers = 5
 		#self.w_range       = 0.25
@@ -60,6 +81,9 @@ class Population:
 
 
 		self.current_batch_size = 0
+
+
+		self.steps = 0
 
 
 
@@ -90,6 +114,7 @@ class Population:
 			# -----------------------------------------------
 			# formula from online
 			w_range = np.random.randn(this_layer_length, prev_layer_length) * np.sqrt(1/prev_layer_length)
+			#w_range = 0.5
 			
 
 			weights  = np.random.uniform(-w_range, w_range, size=(this_layer_length, prev_layer_length)).astype(np.float32, casting='unsafe', copy=True)
@@ -152,8 +177,8 @@ class Population:
 			biases 		= self.layers[i ]["biases"]
 
 			# tanh activation function on each layer besides the final layer
-			if i < len(self.layers)-1: 	self.layers[i]["values"] = calculate_values_numba(prev_values, weights, biases, tanh=True ) 
-			else: 						self.layers[i]["values"] = calculate_values_numba(prev_values, weights, biases, tanh=True ) # final layer has no activation function
+			if i < len(self.layers)-1: 	self.layers[i]["values"] = calculate_values_numba(prev_values, weights, biases, tanh=True  ) 
+			else: 						self.layers[i]["values"] = calculate_values_numba(prev_values, weights, biases, tanh=False ) # final layer has no activation function
 
 		# return values of final layer
 		return self.layers[-1]["values"]
@@ -240,8 +265,10 @@ class Population:
 
 
 		for i in reversed(range(1, len(self.layers)-1)):
-
-			b_cost, w_cost, v_cost = other_layers_grad_desc(self.layers[i]["values"], self.layers[i+1]["v_cost"], self.layers[i-1]["values"], self.layers[i]["weights"])
+			if i == 1:
+				b_cost, w_cost, v_cost = input_layer_grad_desc(self.layers[i]["values"], self.layers[i+1]["v_cost"], self.layers[i-1]["values"], self.layers[i]["weights"])
+			else:
+				b_cost, w_cost, v_cost = other_layers_grad_desc(self.layers[i]["values"], self.layers[i+1]["v_cost"], self.layers[i-1]["values"], self.layers[i]["weights"])
 
 			self.layers[i]['b_cost'] = b_cost
 			self.layers[i]['w_cost'] = w_cost
@@ -250,6 +277,12 @@ class Population:
 
 			self.layers[i]["w_cost_sum"] = np.add(self.layers[i]["w_cost"], self.layers[i]["w_cost_sum"])
 			self.layers[i]["b_cost_sum"] = np.add(self.layers[i]["b_cost"], self.layers[i]["b_cost_sum"])
+
+
+		
+
+
+
 		
 		self.current_batch_size += 1
 
@@ -258,7 +291,9 @@ class Population:
 
 
 
-
+	###########################################################################################################################################
+	# UPDATING WEIGHTS AND BIASES
+	###########################################################################################################################################
 
 	# use the previously calculated gradient descent to get the total
 	def update_weights(self):
@@ -271,7 +306,7 @@ class Population:
 
 			# calculate the average cost and adjust biases
 			bias_cost_average  = np.divide(self.layers[i]["b_cost_sum"], self.current_batch_size)
-			bias_adjusted_rate = np.multiply(self.learning_rate*10, bias_cost_average)
+			bias_adjusted_rate = np.multiply(self.learning_rate, bias_cost_average)
 			self.layers[i]["biases"] = np.subtract(self.layers[i]["biases"], bias_adjusted_rate)
 
 			# reset costs and batch size
@@ -281,8 +316,59 @@ class Population:
 
 
 
+	# use the previously calculated gradient descent to get the total
+	def update_weights_EMBEDDING(self, learning_rate=0.001):
+		# iterate through all weights and costs
+		for i in reversed(range(1, len(self.layers))):
+			if i == 1:
+				# calculate the average cost and adjust weights
+				#weight_cost_average  = np.divide(self.layers[i]["w_cost_sum"], self.current_batch_size)
+				weight_cost_average  = self.layers[i]["w_cost_sum"]
+				weight_adjusted_rate = np.multiply(learning_rate, weight_cost_average)
+				self.layers[i]["weights"] = np.subtract(self.layers[i]["weights"], weight_adjusted_rate)
+
+				# calculate the average cost and adjust biases
+				#bias_cost_average  = np.divide(self.layers[i]["b_cost_sum"], self.current_batch_size)
+				#bias_adjusted_rate = np.multiply(self.learning_rate, bias_cost_average)
+				#self.layers[i]["biases"] = np.subtract(self.layers[i]["biases"], bias_adjusted_rate)
+
+				# reset costs and batch size
+				self.layers[i]["w_cost_sum"] = np.multiply(0, self.layers[i]["w_cost_sum"])
+			#self.layers[i]["b_cost_sum"] = np.multiply(0, self.layers[i]["b_cost_sum"])
+		#self.current_batch_size      = 0
 
 
+	def update_weights_NOT_EMBEDDING(self, learning_rate=0.001):
+		# iterate through all weights and costs
+		for i in reversed(range(1, len(self.layers))):
+			if i != 1:
+				# calculate the average cost and adjust weights
+				weight_cost_average  = np.divide(self.layers[i]["w_cost_sum"], self.current_batch_size)
+				weight_adjusted_rate = np.multiply(learning_rate, weight_cost_average)
+				self.layers[i]["weights"] = np.subtract(self.layers[i]["weights"], weight_adjusted_rate)
+
+				# calculate the average cost and adjust biases
+				bias_cost_average  = np.divide(self.layers[i]["b_cost_sum"], self.current_batch_size)
+				bias_adjusted_rate = np.multiply(learning_rate, bias_cost_average)
+				self.layers[i]["biases"] = np.subtract(self.layers[i]["biases"], bias_adjusted_rate)
+
+			else:
+				# calculate the average cost and adjust biases
+				bias_cost_average  = np.divide(self.layers[i]["b_cost_sum"], self.current_batch_size)
+				bias_adjusted_rate = np.multiply(learning_rate, bias_cost_average)
+				self.layers[i]["biases"] = np.subtract(self.layers[i]["biases"], bias_adjusted_rate)
+
+			# reset costs and batch size
+			self.layers[i]["w_cost_sum"] = np.multiply(0, self.layers[i]["w_cost_sum"])
+			self.layers[i]["b_cost_sum"] = np.multiply(0, self.layers[i]["b_cost_sum"])
+		self.current_batch_size      = 0
+
+
+
+
+	###########################################################################################################################################
+	# TRAINING AND TESTING
+	###########################################################################################################################################
 
 	def train_and_test(self, data, steps):
 		#"                                                                         steps           time      remaining  "
@@ -468,23 +554,7 @@ class Population:
 
 
 
-	def check_accuracy(self, output, solutions):
-		#  0: WFG%2       1: WFGA2       2: WFG%3       3: WFGA3       4: WFT%        5: WFTA      
-		#  6: WOR         7: WDR         8: WAst        9: WTO        10: WStl       11: WBlk       12: WPF
-		# 13: LFG%2      14: LFGA2      15: LFG%3      16: LFGA3      17: LFT%       18: LFTA
-		# 19: LOR        20: LDR        21: LAst       22: LTO        23: LStl       24: LBlk       25: LPF 
 
-		points_for =  2*output[ 0]*output[ 1] +  3*output[ 2]*output[ 3] +    output[ 4]*output[ 5]
-		points_aga = -2*output[13]*output[14] + -3*output[15]*output[16] + -1*output[17]*output[18]
-
-		sol_for =  2*solutions[ 0]*solutions[ 1] +  3*solutions[ 2]*solutions[ 3] +    solutions[ 4]*solutions[ 5]
-		sol_aga = -2*solutions[13]*solutions[14] + -3*solutions[15]*solutions[16] + -1*solutions[17]*solutions[18]
-
-		if points_for > 0 and points_aga < 0:
-			if   abs(points_for) > abs(points_aga) and abs(sol_for) > abs(sol_aga): return 1
-			elif abs(points_for) < abs(points_aga) and abs(sol_for) < abs(sol_aga): return 1
-
-		return 0
 
 
 
@@ -624,89 +694,7 @@ step time   {:>13}  {:>8}% {:>8}
 		power = 10.0**decimals
 		return int(x*power)/power
 
-	def box_score_preview(self, inputs, solutions, variances, game_id, maximums, headers_list):
-		# calculations
-		# -------------
-		self.layers[0]["values"] = inputs[game_id]
-
-		raw_outputs = self.calculate_values()
-
-		outputs = np.multiply( raw_outputs, maximums)
-		actual  = np.multiply( np.copy(solutions[game_id]), maximums)
-
-		error = np.multiply(np.divide(np.subtract(raw_outputs, solutions[game_id]), raw_outputs), 100)
-		cost  = np.square(np.subtract(raw_outputs,solutions[game_id]))
-		var_cost = np.divide(cost, variances)
-
-
-		points_for =  2*outputs[ 0]*outputs[ 1] +  3*outputs[ 2]*outputs[ 3] +    outputs[ 4]*outputs[ 5]
-		points_aga = -2*outputs[13]*outputs[14] + -3*outputs[15]*outputs[16] + -1*outputs[17]*outputs[18]
-
-		points_for_a =  2*actual[ 0]*actual[ 1] +  3*actual[ 2]*actual[ 3] +    actual[ 4]*actual[ 5]
-		points_aga_a = -2*actual[13]*actual[14] + -3*actual[15]*actual[16] + -1*actual[17]*actual[18]
-
-
-		total_cost = self.manual_round( np.sum(cost    ), 3 )
-		total_varc = self.manual_round( np.sum(var_cost), 3 )
-		avg_cost   = self.manual_round( total_cost/self.l_outputs, 3 )
-		avg_varc   = self.manual_round( total_varc/self.l_outputs, 3 )
-
-
-
-
-		# printing
-		# ---------
-		lines = {"1"       : "       ",
-				 "actual1" : "actual ",
-				 "model1"  : "model  ",
-				 "2"       : "       ",
-				 #"error1"  : "% err  ",
-				 "cost1"   : "cost   ",
-				 "var_c1"  : "var_c  ",
-				 "3"       : "",
-				 "4"       : "       ",
-				 "actual2" : "actual ",
-				 "model2"  : "model  ",
-				 "5"       : "       ",
-				 #"error2"  : "% err  ",
-				 "cost2"   : "cost   ",
-				 "var_c2"  : "var_c  "}
-
-		percentages = [0,2,4, 13,15,17]
-		for i in range(len(outputs)):
-			if i in percentages: 	decimals = 3
-			else: 					decimals = 1
-
-			if i < len(outputs)//2:
-				lines["1"      ] += "{:>6} ".format(headers_list [i])
-				lines["actual1"] += "{:>6} ".format(self.manual_round(actual [i], decimals))
-				lines["model1" ] += "{:>6} ".format(self.manual_round(outputs[i], decimals))
-				lines["2"      ] += "{:>6} ".format("-----")
-				#lines["error1" ] += "{:>6} ".format(self.manual_round(error  [i], 2))
-				lines["cost1"  ] += "{:>6} ".format(self.manual_round(cost    [i], 2))
-				lines["var_c1" ] += "{:>6} ".format(self.manual_round(var_cost[i], 2))
-				
-			else:
-				lines["4"      ] += "{:>6} ".format(headers_list [i])
-				lines["actual2"] += "{:>6} ".format(self.manual_round(actual [i], decimals))
-				lines["model2" ] += "{:>6} ".format(self.manual_round(outputs[i], decimals))
-				lines["5"      ] += "{:>6} ".format("-----")
-				#lines["error2" ] += "{:>6} ".format(self.manual_round(error  [i], 2))
-				lines["cost2"  ] += "{:>6} ".format(self.manual_round(cost    [i], 2))
-				lines["var_c2" ] += "{:>6} ".format(self.manual_round(var_cost[i], 2))
-				
-		for line in lines.keys():
-			print(lines[line])
-		print()
-		print("                model  actual                      total   average")
-		print("               ------  ------                   --------  --------")
-		print("team 1 score:  {:>6}  {:>6}            cost:  {:>8}  {:>8}".format(round(points_for, 1), round(points_for_a, 1), total_cost, avg_cost))
-		print("team 2 score:  {:>6}  {:>6}            var_c: {:>8}  {:>8}".format(round(points_aga, 1), round(points_aga_a, 1), total_varc, avg_varc))
-		print("               ------  ------")
-		print("team 1 win?:   {:>6}  {:>6}".format( abs(points_for) > abs(points_aga), abs(points_for_a) > abs(points_aga_a) ))
-
-
-
+	
 
 
 
@@ -759,6 +747,446 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 
 
 
+	###########################################################################################################################################
+	# NO EMBEDDINGS - IMPROVED TRAINING FUNCTION
+	###########################################################################################################################################
+
+	def train_and_test_base(self, training_inputs, training_solutions, 
+							batch_size=10,
+							steps=1000, training_time=60, use_time=False, 
+							report_frequency=1
+							):
+		'''
+		steps/time, input_data, solutions, embeddings
+
+		input daya comes with inputs and tells what embeddings to slot in
+		function to create embeddings, function to update embeddings, 
+
+		'''
+		print("Training Progress:                             |    cost     acc  |     steps           time      remaining  ")
+		print("                                               | --------  ------ | ----------  -------------  ------------- ")
+		
+		# timings
+		# --------
+		step_time = 0
+		set_inputs 			= 0
+		calculate_value 	= 0
+		gradient_descent 	= 0
+		update_weights 		= 0
+		scoring 			= 0
+
+
+		# train and test splits
+		# ----------------------
+		random_order = list(range(len(training_inputs)))
+		#random.shuffle(random_order)
+
+		split = 0.70
+		split_end = int(split * len(random_order))
+
+		training_indicis = random_order[:split_end]
+		testing_indicis  = random_order[split_end:]
+
+
+		# training loop
+		# --------------
+		start_time = time()
+
+		all_accuracies = []
+		average_costs  = []
+
+		for i in range(steps):
+			if ((time()-start_time) > training_time and use_time) or self.stop_training:
+				# get final cost/accuracy before breaking loop
+				# ---------------------------------------------
+				if (i % report_frequency) != 0:
+					scoring_start = time()
+
+					random.shuffle(testing_indicis)
+
+					accuracy   = 0
+					total_cost = []
+
+					for j in testing_indicis:
+						# set inputs
+						self.layers[0]["values"] = training_inputs[j]
+
+						# calculate value
+						output = self.calculate_values()
+
+						# calculate cost and accuracy
+						fixed_output    = np.divide(np.add(               output, 1), 2)
+						fixed_solutions = np.divide(np.add(training_solutions[j], 1), 2)
+
+						total_cost.append(np.sum(np.square(np.subtract(fixed_solutions, fixed_output))))
+						accuracy += check_accuracy_numba(output, training_solutions[j])
+
+					# update costs
+					all_accuracies.append(       accuracy / len(testing_indicis))
+					average_costs .append(sum(total_cost) / len(total_cost     ))
+
+					# one last progress bar update
+					self.progress_bar(i-1, steps, step_time, average_costs[-1], all_accuracies[-1])
+
+					scoring += (time()-scoring_start)
+
+				# break the loop
+				steps = i-1
+				break
+
+
+			# start of actual step
+			# ---------------------
+			step_start = time()
+
+			random.shuffle(training_indicis)
+			for j in training_indicis:
+
+				# replace input data
+				# -----------------------------------------------------------------
+				set_inputs_start = time()
+				self.layers[0]["values"] = training_inputs[j]
+				set_inputs += (time()-set_inputs_start)
+				
+
+				# calculate value
+				# -----------------------------------------------------------------
+				calculate_value_start = time()
+				output = self.calculate_values()
+				calculate_value += (time()-calculate_value_start)
+
+
+				# calculate gradient descent
+				# -----------------------------------------------------------------
+				gradient_descent_start = time()
+				self.calc_grad_descent(training_solutions[j])
+				gradient_descent += (time()-gradient_descent_start)
+
+
+				# update all values
+				# -----------------------------------------------------------------
+				update_weights_start = time()
+				if (self.steps % batch_size) == 0: self.update_weights()
+				self.steps += 1
+				update_weights += (time()-update_weights_start)
+
+
+			# only make a report every other step
+			# -----------------------------------------------------------------
+			if (i % report_frequency) == 0:
+				scoring_start = time()
+
+				accuracy   = 0
+				total_cost = []
+
+				random.shuffle(testing_indicis)
+				for j in testing_indicis:
+					# set inputs
+					self.layers[0]["values"] = training_inputs[j]
+
+					# calculate value
+					output = self.calculate_values()
+
+					# calculate cost and accuracy
+					fixed_output    = np.divide(np.add(               output, 1), 2)
+					#fixed_output    = 1/(1 + np.exp(-output))
+					fixed_solutions = np.divide(np.add(training_solutions[j], 1), 2)
+
+					total_cost.append(np.sum(np.square(np.subtract(fixed_solutions, fixed_output))))
+					#if (fixed_output > 0.5 and fixed_solutions > 0.5) or (fixed_output < 0.5 and fixed_solutions < 0.5): accuracy += 1
+					accuracy += check_accuracy_numba(output, training_solutions[j])
+
+				scoring += (time()-scoring_start)
+
+
+			# timing and progress bar stuff
+			# ------------------------------
+			step_time_i  = (time()-step_start)
+			step_time   += step_time_i
+
+			self.last_10_step_times.pop(0)
+			self.last_10_step_times.append(step_time_i)
+
+			# printing progress
+			if (i % report_frequency) == 0:
+				all_accuracies.append(       accuracy / len(testing_indicis))
+				average_costs .append(sum(total_cost) / len(total_cost     ))
+
+				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1])
+
+		data = {"steps"				: steps, 
+				"calculate_value"	: calculate_value, 
+				"gradient_descent"	: gradient_descent, 
+				"scoring"			: scoring, 
+				"step_time"			: step_time, 
+				"set_inputs"		: set_inputs, 
+				"update_weights"	: update_weights
+		}
+
+		return [steps, calculate_value, gradient_descent, scoring, step_time, set_inputs, update_weights], data, average_costs, all_accuracies
+
+
+
+
+
+	###########################################################################################################################################
+	# EMBEDDING TRAINING (as WEIGHTS)
+	###########################################################################################################################################
+
+	def set_inputs_and_embeddings(self, training_inputs_row, embedding_keys_row, embeddings_dict):
+		# set inputs
+		# -----------
+		self.layers[0]["values"] = training_inputs_row
+
+		# create weights array from embeddings
+		# -------------------------------------
+		embed_weights = embeddings_dict[embedding_keys_row[0]]
+		for i in range(1, len(embedding_keys_row)):
+			key = embedding_keys_row[i]
+
+			embed_weights = np.concatenate((embed_weights, embeddings_dict[key]))
+
+			# if its the second half of embeddings, multiply by -1
+			#if i+1 > (len(embedding_keys_row)/2):
+				#inv_embedding = np.multiply(-1, embeddings_dict[key])
+				#embed_weights = np.concatenate((embed_weights, inv_embedding))
+			#else:
+				#embed_weights = np.concatenate((embed_weights, embeddings_dict[key]))
+
+		# set embedding weights
+		self.layers[1]["weights"] = embed_weights
+
+
+	def save_updated_embeddings(self, embedding_keys_row, embeddings_dict):
+
+		embed_weights = self.layers[1]["weights"]
+
+		start_input = 0
+		end_input   = 0
+		for i in range(len(embedding_keys_row)):
+			key = embedding_keys_row[i]
+
+			end_input 			= (start_input + embeddings_dict[key].shape[0])
+			updated_embeddings  = np.copy(embed_weights[start_input:end_input])
+			start_input 		= end_input
+
+			embeddings_dict[key] = updated_embeddings
+
+			# if its the second half of embeddings, multiply by -1 (to get back to normal)
+			#if i+1 > (len(embedding_keys_row)/2): 	embeddings_dict[key] = np.multiply(-1, updated_embeddings)
+			#else: 									embeddings_dict[key] = updated_embeddings
+
+
+
+	def train_and_test_embeddings_WEIGHTS(self, training_inputs, embedding_keys, training_solutions, embeddings_dict, 
+										  steps=1000, training_time=60, use_time=False, report_frequency=1
+								  		 ):
+		'''
+		steps/time, input_data, solutions, embeddings
+
+		input daya comes with inputs and tells what embeddings to slot in
+		function to create embeddings, function to update embeddings, 
+
+		'''
+		print("Training Progress:                             |    cost     acc  |     steps           time      remaining  ")
+		print("                                               | --------  ------ | ----------  -------------  ------------- ")
+		
+		# timings
+		# --------
+		step_time = 0
+		set_inputs 			= 0
+		calculate_value 	= 0
+		gradient_descent 	= 0
+		update_weights 		= 0
+		scoring 			= 0
+
+
+		# train and test splits
+		# ----------------------
+		random_order = list(range(len(training_inputs)))
+		#random.shuffle(random_order)
+
+		split = 0.70
+		split_end = int(split * len(random_order))
+
+		training_indicis = random_order[:split_end]
+		testing_indicis  = random_order[split_end:]
+
+
+		# training loop
+		# --------------
+		start_time = time()
+
+		all_accuracies = []
+		average_costs  = []
+
+		for i in range(steps):
+			if ((time()-start_time) > training_time and use_time) or self.stop_training:
+				# get final cost/accuracy before breaking loop
+				# ---------------------------------------------
+				if (i % report_frequency) != 0:
+					scoring_start = time()
+
+					random.shuffle(testing_indicis)
+
+					accuracy   = 0
+					total_cost = []
+
+					for j in testing_indicis:
+						# set inputs
+						self.set_inputs_and_embeddings(training_inputs[j], embedding_keys[j], embeddings_dict)
+
+						# calculate value
+						output = self.calculate_values()
+
+						# calculate cost and accuracy
+						fixed_output    = np.divide(np.add(               output, 1), 2)
+						fixed_solutions = np.divide(np.add(training_solutions[j], 1), 2)
+
+						total_cost.append(np.sum(np.square(np.subtract(fixed_solutions, fixed_output))))
+						accuracy += check_accuracy_numba(output, training_solutions[j])
+
+					# update costs
+					all_accuracies.append(       accuracy / len(testing_indicis))
+					average_costs .append(sum(total_cost) / len(total_cost     ))
+
+					# one last progress bar update
+					self.progress_bar(i-1, steps, step_time, average_costs[-1], all_accuracies[-1])
+
+					scoring += (time()-scoring_start)
+
+				# break the loop
+				steps = i-1
+				break
+
+
+			# start of actual step
+			# ---------------------
+			step_start = time()
+
+			random.shuffle(training_indicis)
+
+			#for j in range(len(training_inputs)):
+			for j in training_indicis:
+
+				# replace input data and embeddings
+				# -----------------------------------------------------------------
+				# get all the values from embeddings dict
+				# i think to adjust the values, i need to save the indicis
+				set_inputs_start = time()
+				self.set_inputs_and_embeddings(training_inputs[j], embedding_keys[j], embeddings_dict)
+				set_inputs += (time()-set_inputs_start)
+				
+
+
+				# calculate value
+				# -----------------------------------------------------------------
+				calculate_value_start = time()
+				output = self.calculate_values()
+				calculate_value += (time()-calculate_value_start)
+
+
+
+				# calculate gradient descent
+				# -----------------------------------------------------------------
+				gradient_descent_start = time()
+				self.calc_grad_descent(training_solutions[j])
+				gradient_descent += (time()-gradient_descent_start)
+
+
+
+				# update all values
+				# -----------------------------------------------------------------
+				update_weights_start = time()
+
+				'''
+				self.update_weights_EMBEDDING(learning_rate=(self.learning_rate*100))
+				self.save_updated_embeddings(embedding_keys[j], embeddings_dict)
+
+				if int(self.steps // 10) % 2 == 0:
+					self.update_weights()
+
+				self.steps += 1
+
+				
+				if self.steps < 25:
+				#if int(self.steps // 10) % 2 == 0:
+				#if self.steps < 10 or self.steps % 4 == 0: 
+					self.update_weights_NOT_EMBEDDING(learning_rate=(self.learning_rate*1))
+				else:
+					self.update_weights_EMBEDDING(learning_rate=(self.learning_rate*100))
+					self.save_updated_embeddings(embedding_keys[j], embeddings_dict)
+	
+				self.steps += 1
+				'''
+
+				self.update_weights()
+				self.save_updated_embeddings(embedding_keys[j], embeddings_dict)
+				
+
+				update_weights += (time()-update_weights_start)
+
+
+
+			# only make a report every other step
+			# -----------------------------------------------------------------
+			if (i % report_frequency) == 0:
+				scoring_start = time()
+
+				random.shuffle(testing_indicis)
+
+				accuracy   = 0
+				total_cost = []
+
+				for j in testing_indicis:
+					# set inputs
+					self.set_inputs_and_embeddings(training_inputs[j], embedding_keys[j], embeddings_dict)
+
+					# calculate value
+					output = self.calculate_values()
+
+					# calculate cost and accuracy
+					fixed_output    = np.divide(np.add(               output, 1), 2)
+					fixed_solutions = np.divide(np.add(training_solutions[j], 1), 2)
+
+					total_cost.append(np.sum(np.square(np.subtract(fixed_solutions, fixed_output))))
+					accuracy += check_accuracy_numba(output, training_solutions[j])
+
+				scoring += (time()-scoring_start)
+
+
+			# timing and progress bar stuff
+			# ------------------------------
+			step_time_i  = (time()-step_start)
+			step_time   += step_time_i
+
+			self.last_10_step_times.pop(0)
+			self.last_10_step_times.append(step_time_i)
+
+			# printing progress
+			if (i % report_frequency) == 0:
+				all_accuracies.append(       accuracy / len(testing_indicis))
+				average_costs .append(sum(total_cost) / len(total_cost     ))
+
+				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1])
+
+		data = {"steps"				: steps, 
+				"calculate_value"	: calculate_value, 
+				"gradient_descent"	: gradient_descent, 
+				"scoring"			: scoring, 
+				"step_time"			: step_time, 
+				"set_inputs"		: set_inputs, 
+				"update_weights"	: update_weights
+		}
+
+		return [steps, calculate_value, gradient_descent, scoring, step_time, set_inputs, update_weights], data, average_costs, all_accuracies
+
+
+
+	###########################################################################################################################################
+	# EMBEDDING TRAINING (as INPUTS)
+	###########################################################################################################################################
+
 
 	def train_and_test_embeddings_THREAD(self, training_inputs, embedding_keys, training_solutions, embeddings_dict, 
 								  		 steps=100, training_time=60, use_time=False, report_frequency=1
@@ -795,12 +1223,25 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 		scoring 			= 0
 
 
-		all_accuracies = []
-		average_costs  = []
+
+		# train and test splits
+		# ----------------------
+		random_order = list(range(len(training_inputs)))
+		#random.shuffle(random_order)
+
+		split = 0.70
+		split_end = int(split * len(random_order))
+
+		training_indicis = random_order[:split_end]
+		testing_indicis  = random_order[split_end:]
+
 
 		# training loop
 		# --------------
 		start_time = time()
+
+		all_accuracies = []
+		average_costs  = []
 
 		for i in range(steps):
 			if ((time()-start_time) > training_time and use_time) or self.stop_training:
@@ -812,7 +1253,8 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 					accuracy   = 0
 					total_cost = []
 
-					for j in random_order:
+					random.shuffle(testing_indicis)
+					for j in testing_indicis:
 						# set inputs
 						embedding_values  = list(training_inputs[j])
 						embedding_indicis = [len(training_inputs[j])]
@@ -833,7 +1275,7 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 						accuracy += check_accuracy_numba(output, training_solutions[j])
 
 					# update costs
-					all_accuracies.append(       accuracy / len(training_inputs))
+					all_accuracies.append(       accuracy / len(testing_indicis))
 					average_costs .append(sum(total_cost) / len(total_cost     ))
 
 					# one last progress bar update
@@ -850,12 +1292,8 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 			# ---------------------
 			step_start = time()
 
-			random_order = list(range(len(training_inputs)))
-			random.shuffle(random_order)
-
-
-			#for j in range(len(training_inputs)):
-			for j in random_order:
+			random.shuffle(training_indicis)
+			for j in training_indicis:
 
 				# replace input data and embeddings
 				# -----------------------------------------------------------------
@@ -863,14 +1301,25 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 				# i think to adjust the values, i need to save the indicis
 				set_inputs_start = time()
 
+				'''
 				embedding_values  = list(training_inputs[j])
 				embedding_indicis = [len(training_inputs[j])]
 				for key in embedding_keys[j]:
 					embedding_indicis.append(len(embeddings_dict[key]))
 					embedding_values += list(embeddings_dict[key])
+				'''
+
+				embedding_values  = list(training_inputs[j])
+				embedding_indicis = [len(training_inputs[j])]
+				for k in range(len(embedding_keys[j])):
+					key = embedding_keys[j][k]
+					embedding_indicis.append(len(embeddings_dict[key]))
+					if k+1 > (len(embedding_keys[j])/2): 	embedding_values += list(np.multiply(-1, embeddings_dict[key]))
+					else: 									embedding_values += list(embeddings_dict[key])
+
 
 				self.layers[0]["values"] = np.array(embedding_values, dtype=np.float32)
-				
+
 				set_inputs += (time()-set_inputs_start)
 				
 
@@ -906,7 +1355,8 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 				accuracy   = 0
 				total_cost = []
 
-				for j in random_order:
+				random.shuffle(testing_indicis)
+				for j in testing_indicis:
 					# set inputs
 					embedding_values  = list(training_inputs[j])
 					embedding_indicis = [len(training_inputs[j])]
@@ -939,29 +1389,29 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 
 			# printing progress
 			if (i % report_frequency) == 0:
-				all_accuracies.append(       accuracy / len(training_inputs))
+				all_accuracies.append(       accuracy / len(testing_indicis))
 				average_costs .append(sum(total_cost) / len(total_cost     ))
 
 				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1])
 
-			data = {"steps"				: steps, 
-					"calculate_value"	: calculate_value, 
-					"gradient_descent"	: gradient_descent, 
-					"scoring"			: scoring, 
-					"step_time"			: step_time, 
-					"set_inputs"		: set_inputs, 
-					"update_weights"	: update_weights
-			}
+		data = {"steps"				: steps, 
+				"calculate_value"	: calculate_value, 
+				"gradient_descent"	: gradient_descent, 
+				"scoring"			: scoring, 
+				"step_time"			: step_time, 
+				"set_inputs"		: set_inputs, 
+				"update_weights"	: update_weights
+		}
 
 		return [steps, calculate_value, gradient_descent, scoring, step_time, set_inputs, update_weights], data, average_costs, all_accuracies
 
 
 
 
-#@numba.jit(nopython=True)
+#@numba.jit()
 def update_embeddings(input_layer_values, v_cost, embeddings_dict, embedding_keys_row, embedding_indicis, learning_rate):
 	# use the previously calculated gradient descent to get the total
-	embedding_learning_rate = 0.1
+	embedding_learning_rate = 10.0
 
 	value_adjusted_rate = np.multiply((learning_rate*embedding_learning_rate), v_cost)
 	input_layer_values  = np.subtract(input_layer_values, value_adjusted_rate)
@@ -973,8 +1423,11 @@ def update_embeddings(input_layer_values, v_cost, embeddings_dict, embedding_key
 	for i in range(len(embedding_keys_row)):
 		end_index     = (start_index + embedding_indicis[i+1])
 		adj_embedding = np.array(input_layer_values[start_index:end_index], dtype=np.float32)
+		start_index   = end_index
 
-		embeddings_dict[embedding_keys_row[i]] = adj_embedding
+		if i+1 > (len(embedding_keys_row)/2): 	embeddings_dict[embedding_keys_row[i]] = np.multiply(-1, adj_embedding)
+		else: 									embeddings_dict[embedding_keys_row[i]] = adj_embedding
+
 		#adj_embeddings.append(adj_embedding)
 
 
@@ -1005,13 +1458,15 @@ def create_embedding(size, init_range=0.5):
 
 
 
-
 @numba.jit(nopython=True)
 def check_accuracy_numba(output, solutions):
 	#  0: WFG%2       1: WFGA2       2: WFG%3       3: WFGA3       4: WFT%        5: WFTA      
 	#  6: WOR         7: WDR         8: WAst        9: WTO        10: WStl       11: WBlk       12: WPF
 	# 13: LFG%2      14: LFGA2      15: LFG%3      16: LFGA3      17: LFT%       18: LFTA
 	# 19: LOR        20: LDR        21: LAst       22: LTO        23: LStl       24: LBlk       25: LPF 
+	#print(output.shape)
+	#print()
+	#print(output)
 
 	if output[0] > 0 and solutions[0] > 0 or  output[0] < 0 and solutions[0] < 0: return 1
 	else:                                                                         return 0
@@ -1049,12 +1504,13 @@ def calculate_values_numba(prev_values, weights, biases, tanh):
 
 
 
-
-
+###########################################################################################################################################
+# Current Loss Functions
+###########################################################################################################################################
 
 
 @numba.jit(nopython=True)
-def first_layer_grad_desc2(values, solutions, prev_values, weights):
+def first_layer_grad_desc_0(values, solutions, prev_values, weights):
 	
 	a1_1 = np.multiply(np.subtract(values, solutions), 2)
 	a1_2 = np.subtract(1, np.square(values))
@@ -1076,11 +1532,14 @@ def first_layer_grad_desc2(values, solutions, prev_values, weights):
 	return b_cost, w_cost, v_cost
 
 
+
 @numba.jit(nopython=True)
-def other_layers_grad_desc(values, prev_v_cost, prev_values, weights):
+def other_layers_grad_desc_0(values, prev_v_cost, prev_values, weights):
 
 	a1_1 = prev_v_cost
 	a1_2 = np.subtract(1, np.square(values))
+
+	
 
 	# weight decay
 	# -------------
@@ -1106,52 +1565,21 @@ def other_layers_grad_desc(values, prev_v_cost, prev_values, weights):
 
 
 
-
-
-
 @numba.jit(nopython=True)
-def first_layer_grad_desc(values, solutions, prev_values, weights):
+def first_layer_grad_desc_1(values, solutions, prev_values, weights):
 	
-	#a1_1 = np.multiply(np.subtract(values, solutions), 2)
-
-	#adj_values    = np.divide(np.add(1,    values), 2)
-	#adj_solutions = np.divide(np.add(1, solutions), 2)
-
-	adj_values    = np.divide(np.add(1, np.multiply(0.95,    values)), 2)
-	adj_solutions = np.divide(np.add(1, np.multiply(0.95, solutions)), 2)
-
-	#adj_values[adj_values > 0.999] = 0.999
-	#adj_values[adj_values < 0.001] = 0.001
-
-	if adj_solutions[0] == 0 and adj_values[0] == 0:
-		a1_1 = np.multiply(0, adj_solutions)
-
-	elif adj_solutions[0] == 1 and adj_values[0] == 1:
-		a1_1 = np.multiply(0, adj_solutions)
-
-	else:
-		a1_1 = np.add(np.multiply(-1, np.divide(adj_solutions, adj_values)), np.divide(np.subtract(1,adj_solutions), np.subtract(1, adj_values)))
+	adj_values    = np.divide(np.add(1, np.multiply(0.98,    values)), 2)
+	adj_solutions = np.divide(np.add(1, np.multiply(0.98, solutions)), 2)
+	a1_1 = np.add(np.multiply(-1, np.divide(adj_solutions, adj_values)), np.divide(np.subtract(1,adj_solutions), np.subtract(1, adj_values)))
 
 
-	#if adj_values[0] == 1 or adj_values[0] == 0: 
-		#print(adj_values, "|", adj_solutions)
-		#print()
-
-	#adj_values[adj_values == 1.] = 0.9
-	#adj_values[adj_values == 0.] = 0.1
-	
-
-	#a1_1 = np.divide(np.subtract(values, solutions), np.multiply(values, np.subtract(1, values)))
+	# binary cross entropy ???
 	#a1_1 = np.add(np.multiply(-1, np.divide(adj_solutions, adj_values)), np.divide(np.subtract(1,adj_solutions), np.subtract(1, adj_values)))
-
-
-	#a1_2 = np.subtract(1, np.square(values))
-	#a1_2 = np.subtract(1, np.square(adj_values))
 
 
 	# weight decay
 	# -------------
-	#weight_L2 = np.multiply(np.average(np.square(weights), axis=1), 0.001)
+	#weight_L2 = np.multiply(np.average(np.square(weights), axis=1), 0.1)
 	#weight_L2 = np.multiply(np.mean(np.square(weights)), 0.1)	
 	#a1_1 = np.add(a1_1, weight_L2)
 
@@ -1168,23 +1596,351 @@ def first_layer_grad_desc(values, solutions, prev_values, weights):
 
 
 
+###########################################################################################################################################
+# New Loss Functions
+###########################################################################################################################################
+'''
+weights:
+---------
+loss_func(value, solution) * tanh_deriv(prev_layer_value*weight) * prev values
+
+biases:
+-------
+loss_func * tanh_deriv * 1
+
+tanh deriv = 1 - np.tanh(x)^2
+
+'''
+
+
+from sklearn.metrics import log_loss
+
+#@numba.jit(nopython=True)
+def first_layer_grad_desc(values, solutions, prev_values, weights):
+	'''
+	https://www.youtube.com/watch?v=tIeHLnjs5U8&list=LL&index=24&t=243s
+
+	loss_func(value, solution) * tanh_deriv(prev_layer_value*weight) * prev values
+	
+	print("tanh_deriv:  ", tanh_deriv.shape)
+	print("log_loss:    ", log_loss.shape)
+	print("bias_costs:  ", bias_costs.shape)
+	print("weight_costs:", weight_costs.shape)
+	print("v_cost:      ", v_cost.shape)
+	print("\n")
+
+
+	tanh_deriv:   (264,)
+	log_loss:     (1,)
+	bias_costs:   (1,)
+	weight_costs: (1, 264)
+	v_cost:       (264,)
+
+
+	x = this layer
+	y = prev layer
+	cost_x_tanh_prime: (1, 264)
+	weights:           (1, 264)
+	mult:              (1, 264)
+	weights flipped:   (264, 1)
+	mult flipped:      (264, 264)
+
+
+	'''
+	# tanh deriv
+	# -----------
+	tanh_deriv = np.subtract(1, np.square(np.tanh(prev_values)))
+	#tanh_deriv = np.subtract(1, np.square(prev_values))
+	#tanh_deriv = np.ones(shape=prev_values.shape, dtype=np.float32)
+
+
+	# log loss / whatever loss function
+	# ----------------------------------
+	'''
+	adj_values    = np.divide(np.add(1, np.multiply(0.95,    values)), 2)
+	adj_solutions = np.divide(np.add(1, np.multiply(0.95, solutions)), 2)
+
+	# https://towardsdatascience.com/intuition-behind-log-loss-score-4e0c9979680a 
+	log_loss = np.multiply(-1, np.add(
+		np.multiply(				adj_solutions,  np.log(					adj_values)), 
+		np.multiply(np.subtract(1, 	adj_solutions), np.log(np.subtract(1, 	adj_values)))
+		))
+	
+
+
+	np.sum(np.nan_to_num(-y*np.log(a)-(1-y)*np.log(1-a)))
+
+	adj_values    = np.divide(np.add(1,    values), 2)
+	adj_solutions = np.divide(np.add(1, solutions), 2)
+
+	rev_values    = np.subtract(1, adj_values)
+	rev_solutions = np.subtract(1, adj_solutions)
+
+	y      = np.concatenate((adj_solutions, rev_solutions))
+	y_pred = np.concatenate((adj_values,    rev_values))
+
+
+	loss = np.nan_to_num(log_loss(y, y_pred, eps=1e-7))
+	loss = np.array([loss], dtype=np.float32)
+
+
+	def sig(x):
+		return 1/(1 + np.exp(-x))
+		
+
+
+
+	adj_values    = 1/(1 + np.exp(-values))
+	adj_solutions = np.divide(np.add(1, solutions), 2)
+
+	rev_values    = np.subtract(1, adj_values)
+	rev_solutions = np.subtract(1, adj_solutions)
+
+	y      = np.concatenate((adj_solutions, rev_solutions))
+	y_pred = np.concatenate((adj_values,    rev_values))
+
+	loss = np.nan_to_num(log_loss(y, y_pred, eps=1e-7))
+	loss = np.array([loss])
+
+
+	'''
+
+
+	#print(loss)
+	#print()
+	#loss = np.array([loss])
+
+
+	loss = np.multiply(2, np.subtract(values, solutions))
+	
+	
+
+	# first component of derivatives
+	# -------------------------------
+	# (cost of this layer) * (deriv_cost_function of ALL prev layer values)
+	# these get multiplied by: 1, a^-1, and weights
+	# ....
+	cost_x_tanh_prime = np.outer(loss, tanh_deriv)
+	#cost_x_tanh_prime = np.outer(tanh_deriv, log_loss)
+
+
+
+	# Bias Cost
+	# ----------
+	# loss_func * tanh_deriv * 1
+	# (current)      (prev)         -> (current)
+	# how does EACH neuron in the prev layer affect the cost of EACH neuron in this layer
+	# get each different combo, sum them on the axis of THIS layer
+	# ...
+	# loss_func * tanh_deriv * 1
+	bias_costs = np.divide(np.sum(cost_x_tanh_prime, axis=1), tanh_deriv.shape[0])
+	#bias_costs = np.sum(cost_x_tanh_prime, axis=1)
+
+
+	# Weight Cost
+	# ------------
+	# loss_func * (tanh_deriv * prev_values)
+	# (current)    (prev)        (prev)       -> (current, prev)
+	# for EACH neuron in THIS layer
+	#     take the cost of this neuron
+	#     for each neuron connecting to this layer, multiply its value and tanh deriv by the cost
+	# ....
+	# loss_func * (tanh_deriv * prev_values)
+	weight_costs = np.multiply(cost_x_tanh_prime, prev_values)
+
+
+
+	# v_cost, or cost of the neurons below this one, L^-1
+	# ----------------------------------------------------
+	#     (x)          (y)         (x,y)
+	# (loss_func * tanh_deriv) * weights
+	#v_cost = np.sum(np.multiply(np.multiply(log_loss, tanh_deriv), np.swapaxes(weights, 0, 1)), axis=1)
+
+	v_cost = np.sum(np.multiply(np.swapaxes(np.multiply(tanh_deriv, weights), 0, 1), loss), axis=1)
+
+	#v_cost = np.sum(np.dot(cost_x_tanh_prime, weights), axis=0)
+	#v_cost = np.sum(np.dot(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=0)
+
+
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, weights), axis=0) 						# 20 steps, 67%, up and down by up to like 10% jumps
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, weights), axis=1) 						# 22 steps, 66%, up and down by up to like 15% jumps, weights/biases did change
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=0) 	# 
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=1) 	# 
+
+
+	#print(v_cost)
+	#print()
+
+
+	return bias_costs, weight_costs, v_cost
+
+
+
+#@numba.jit(nopython=True)
+def other_layers_grad_desc(values, prev_v_cost, prev_values, weights):
+	'''
+	loss_func(value, solution) * tanh_deriv(prev_layer_value*weight) * prev values
+
+	instead of log loss, now use v_cost
+
+
+	print("tanh_deriv:  ", tanh_deriv.shape)
+	print("prev_v_cost: ", prev_v_cost.shape)
+	print("bias_costs:  ", bias_costs.shape)
+	print("weight_costs:", weight_costs.shape)
+	print("v_cost:      ", v_cost.shape)
+	print("\n")
+
+
+
+	'''
+	# tanh deriv
+	tanh_deriv = np.subtract(1, np.square(np.tanh(prev_values)))
+	#tanh_deriv = np.ones(shape=prev_values.shape, dtype=np.float32)
+
+	#print(prev_v_cost)
+
+	# first component of derivatives
+	# -------------------------------
+	# (cost of this layer) * (deriv_cost_function of ALL prev layer values)
+	# these get multiplied by: 1, a^-1, and weights
+	# ....
+	cost_x_tanh_prime = np.outer(prev_v_cost, tanh_deriv)
+	#cost_x_tanh_prime = np.outer(tanh_deriv, prev_v_cost)
+
+
+
+	# Bias Cost
+	# ----------
+	# prev_v_cost * tanh_deriv * 1
+	# (current)      (prev)         -> (current)
+	# how does EACH neuron in the prev layer affect the cost of EACH neuron in this layer
+	# get each different combo, sum them on the axis of THIS layer
+	# ...
+	# prev_v_cost * tanh_deriv * 1
+	bias_costs = np.divide(np.sum(cost_x_tanh_prime, axis=1), tanh_deriv.shape[0])
+	#bias_costs = np.sum(cost_x_tanh_prime, axis=1)
+
+
+
+	# Weight Cost
+	# ------------
+	# prev_v_cost * (tanh_deriv * prev_values)
+	# (current)       (prev)        (prev)       -> (current, prev)
+	# for EACH neuron in THIS layer
+	#     take the cost of this neuron
+	#     for each neuron connecting to this layer, multiply its value and tanh deriv by the cost
+	# ....
+	# prev_v_cost * (tanh_deriv * prev_values)
+	weight_costs = np.multiply(cost_x_tanh_prime, prev_values)
+	
+
+
+	# v_cost, or cost of the neurons below this one, L^-1
+	# ----------------------------------------------------
+	#     (x)          (y)         (x,y)
+	# (loss_func * tanh_deriv) * weights
+	#v_cost = np.sum(np.multiply(np.multiply(prev_v_cost, tanh_deriv), np.swapaxes(weights, 0, 1)), axis=1)
+
+	v_cost = np.sum(np.multiply(np.swapaxes(np.multiply(tanh_deriv, weights), 0, 1), prev_v_cost), axis=1)
+
+	#v_cost = np.sum(np.dot(cost_x_tanh_prime, weights), axis=0)
+	#v_cost = np.sum(np.dot(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=0)
+
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, weights), axis=0) 						# 
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, weights), axis=1) 						#
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=0) 	# 
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=1) 	# 
+
+
+	return bias_costs, weight_costs, v_cost
 
 
 
 
 
 
+#@numba.jit(nopython=True)
+def input_layer_grad_desc(values, prev_v_cost, prev_values, weights):
+	'''
+	loss_func(value, solution) * tanh_deriv(prev_layer_value*weight) * prev values
+
+	instead of log loss, now use v_cost
+
+
+	print("tanh_deriv:  ", tanh_deriv.shape)
+	print("prev_v_cost: ", prev_v_cost.shape)
+	print("bias_costs:  ", bias_costs.shape)
+	print("weight_costs:", weight_costs.shape)
+	print("v_cost:      ", v_cost.shape)
+	print("\n")
 
 
 
+	'''
+	# input layer is not tanh
+	# ------------------------
+	#tanh_deriv = np.subtract(1, np.square(np.tanh(prev_values)))
+	#tanh_deriv = np.subtract(1, np.square(prev_values))
+	tanh_deriv = np.ones(shape=prev_values.shape, dtype=np.float32)
 
 
 
+	# first component of derivatives
+	# -------------------------------
+	# (cost of this layer) * (deriv_cost_function of ALL prev layer values)
+	# these get multiplied by: 1, a^-1, and weights
+	# ....
+	cost_x_tanh_prime = np.outer(prev_v_cost, tanh_deriv)
+	#cost_x_tanh_prime = np.outer(tanh_deriv, prev_v_cost)
+
+	#print(prev_v_cost)
+
+
+	# Bias Cost
+	# ----------
+	# prev_v_cost * tanh_deriv * 1
+	# (current)      (prev)         -> (current)
+	# how does EACH neuron in the prev layer affect the cost of EACH neuron in this layer
+	# get each different combo, sum them on the axis of THIS layer
+	# ...
+	# prev_v_cost * tanh_deriv * 1
+	bias_costs = np.divide(np.sum(cost_x_tanh_prime, axis=1), tanh_deriv.shape[0])
+	#bias_costs = np.sum(cost_x_tanh_prime, axis=1)
 
 
 
+	# Weight Cost
+	# ------------
+	# prev_v_cost * (tanh_deriv * prev_values)
+	# (current)       (prev)        (prev)       -> (current, prev)
+	# for EACH neuron in THIS layer
+	#     take the cost of this neuron
+	#     for each neuron connecting to this layer, multiply its value and tanh deriv by the cost
+	# ....
+	# prev_v_cost * (tanh_deriv * prev_values)
+	weight_costs = np.multiply(cost_x_tanh_prime, prev_values)
+	
 
 
+	# v_cost, or cost of the neurons below this one, L^-1
+	# ----------------------------------------------------
+	#     (x)          (y)         (x,y)
+	# (loss_func * tanh_deriv) * weights
+	#v_cost = np.sum(np.multiply(np.multiply(prev_v_cost, tanh_deriv), np.swapaxes(weights, 0, 1)), axis=1)
+
+	v_cost = np.sum(np.multiply(np.swapaxes(np.multiply(tanh_deriv, weights), 0, 1), prev_v_cost), axis=1)
+
+	#v_cost = np.sum(np.dot(cost_x_tanh_prime, weights), axis=0)
+	#v_cost = np.sum(np.dot(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=0)
+
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, weights), axis=0) 						# 48 steps, 68%, up and down by up to like 8% jumps
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, weights), axis=1) 						# 20 steps, 68%, up and down by up to like 2% jumps
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=0) 	# 43 steps, 68%, up and down by up to like 3% jumps
+	#v_cost = np.sum(np.multiply(cost_x_tanh_prime, np.swapaxes(weights, 0, 1)), axis=1) 	# 22 steps, 67%, up and down by up to like 5% jumps
+
+
+	return bias_costs, weight_costs, v_cost
 
 
 
