@@ -4,30 +4,28 @@
 
 .DS_Store
 
-# .csv files with data
-# ---------------------
-data_setup/data/*.csv
-data_setup/data/new/base/*.csv
-data_setup/data/new/prepped/*.csv
-data_setup/data/new/prepped/predictions/*.csv
-
 # old files
 # ----------
 old/
-extra/
-
-network_matrix/data_prep.py
-network_matrix/data_test.ipynb
-network_matrix/testing_matrix.ipynb
-
-data_setup/data_prep.ipynb
-data_setup/logic_matrix.ipynb
-data_setup/multiple_outputs.ipynb
-data_setup/testing_data.ipynb
-data_setup/testing_matrix.ipynb
 
 
+# .csv files with data
+# ---------------------
+data_prep/base/*.csv
+data_prep/prepped/*.csv
+
+train_and_test/predictions/*.csv
+train_and_test/predictions/modified/*.csv
+train_and_test/predictions/display_data/*.csv
+
+
+# personal notes file
+# -----------------
 notes_23-01-06.txt
+
+
+
+
 
 
 ########################################
