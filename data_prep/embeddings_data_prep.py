@@ -545,13 +545,13 @@ def create_input_rows(W_data, L_data, womens=False):
 	# ----------------------------
 	new_input_row_1 = W_for.copy() + L_aga.copy() + list(W_together) + W_extra
 	new_input_row_2 = L_for.copy() + W_aga.copy() + list(L_together) + L_extra
+
+	#new_input_row_1 = W_for.copy() + L_aga.copy() + W_4 + W_5 + W_extra
+	#new_input_row_2 = L_for.copy() + W_aga.copy() + L_4 + L_5 + L_extra
 	
 	#new_input_row_1 = W_for.copy() + list(W_together) + W_extra
 	#new_input_row_2 = L_for.copy() + list(L_together) + L_extra
-	#new_input_row_1 = W_for.copy() + W_4 + W_5 + [W_win_p] + L_aga.copy() 
-	#new_input_row_2 = L_for.copy() + L_4 + L_5 + [L_win_p] + W_aga.copy()
-	#new_input_row_1 = W_for.copy() + [W_win_p] + L_aga.copy() 
-	#new_input_row_2 = L_for.copy() + [L_win_p] + W_aga.copy()
+
 	
 
 	orig_length = len(new_input_row_1)

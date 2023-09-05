@@ -57,7 +57,7 @@ from time import time
 
 import random
 
-import numba
+#import numba
 
 
 class Population:
@@ -70,9 +70,6 @@ class Population:
 		# ---------------
 		self.num_inputs = num_inputs
 		self.l_outputs  = num_outputs
-		#self.l_neurons  = int(num_inputs // (3/2)) + self.l_outputs
-		#self.l_neurons  = int(num_inputs // (2/3)) + self.l_outputs
-		#self.l_neurons  = int(num_inputs * 1.0)
 		self.l_neurons  = int(embedding_size * 1.0)
 
 		self.middle_layers = 5
@@ -653,11 +650,16 @@ step time   {:>13}  {:>8}% {:>8}
 
 
 
-	def progress_bar(self, current_step, total_steps, current_time, prev_cost, prev_acc):
-
-		current_step = current_step+1
+	def progress_bar(self, current_step, total_steps, current_time, prev_cost, prev_acc, use_time=False, max_time=60):
 		
-		current_pct  = current_step/total_steps
+		# calculating % completion (different if using steps or time)
+		if use_time:
+			current_pct = min(current_time/max_time, 1)
+		else:
+			current_step = current_step+1
+			current_pct  = current_step/total_steps
+
+		# creating the actual bar
 		bar_length   = int(33 * current_pct)
 		blank_length = 33-bar_length
 
@@ -665,13 +667,16 @@ step time   {:>13}  {:>8}% {:>8}
 		blank = " " * blank_length
 
 
-		progress  = round((current_step/total_steps)*100, 2)
-		time_so_far    = round(   current_time, 1)
-		#time_remaining = round( ((current_time*total_steps)/(current_step)-current_time) , 1)
-
-		# running average time remaining
-		running_average = (sum(self.last_10_step_times)/len(self.last_10_step_times))
-		time_remaining  = round( (total_steps-current_step)*running_average, 1 ) 
+		
+		# Progress and Time Remaining
+		if use_time:
+			progress = round(min(current_time/max_time, 1)*100, 2)
+			time_remaining = max(round(max_time - current_time, 1), 0)
+		else:
+			progress = round((current_step/total_steps)*100, 2)
+			# running average time remaining
+			running_average = (sum(self.last_10_step_times)/len(self.last_10_step_times))
+			time_remaining  = round( (total_steps-current_step)*running_average, 1 ) 
 
 
 		steps = "{}/{}".format(current_step, total_steps)
@@ -681,7 +686,7 @@ step time   {:>13}  {:>8}% {:>8}
 																							progress, 
 																							round(prev_cost, 5), round(prev_acc*100, 2),
 																							steps,
-																							self.time_display(time_so_far),
+																							self.time_display(round(current_time, 1)),
 																							self.time_display(time_remaining))
 		
 		print(output, end="\r")
@@ -779,7 +784,6 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 		# train and test splits
 		# ----------------------
 		random_order = list(range(len(training_inputs)))
-		#random.shuffle(random_order)
 
 		split = 0.70
 		split_end = int(split * len(random_order))
@@ -912,7 +916,7 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 				all_accuracies.append(       accuracy / len(testing_indicis))
 				average_costs .append(sum(total_cost) / len(total_cost     ))
 
-				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1])
+				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1], use_time, training_time)
 
 		data = {"steps"				: steps, 
 				"calculate_value"	: calculate_value, 
@@ -1168,7 +1172,7 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 				all_accuracies.append(       accuracy / len(testing_indicis))
 				average_costs .append(sum(total_cost) / len(total_cost     ))
 
-				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1])
+				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1], use_time, training_time)
 
 		data = {"steps"				: steps, 
 				"calculate_value"	: calculate_value, 
@@ -1301,7 +1305,7 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 				# i think to adjust the values, i need to save the indicis
 				set_inputs_start = time()
 
-				'''
+				
 				embedding_values  = list(training_inputs[j])
 				embedding_indicis = [len(training_inputs[j])]
 				for key in embedding_keys[j]:
@@ -1316,7 +1320,7 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 					embedding_indicis.append(len(embeddings_dict[key]))
 					if k+1 > (len(embedding_keys[j])/2): 	embedding_values += list(np.multiply(-1, embeddings_dict[key]))
 					else: 									embedding_values += list(embeddings_dict[key])
-
+				'''
 
 				self.layers[0]["values"] = np.array(embedding_values, dtype=np.float32)
 
@@ -1392,7 +1396,7 @@ weights   {:>8}  {:>8}  {:>8}  {:>8}  {:>8}
 				all_accuracies.append(       accuracy / len(testing_indicis))
 				average_costs .append(sum(total_cost) / len(total_cost     ))
 
-				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1])
+				self.progress_bar(i, steps, step_time, average_costs[-1], all_accuracies[-1], use_time, training_time)
 
 		data = {"steps"				: steps, 
 				"calculate_value"	: calculate_value, 
@@ -1458,7 +1462,7 @@ def create_embedding(size, init_range=0.5):
 
 
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def check_accuracy_numba(output, solutions):
 	#  0: WFG%2       1: WFGA2       2: WFG%3       3: WFGA3       4: WFT%        5: WFTA      
 	#  6: WOR         7: WDR         8: WAst        9: WTO        10: WStl       11: WBlk       12: WPF
@@ -1473,7 +1477,7 @@ def check_accuracy_numba(output, solutions):
 
 
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def calculate_values_numba(prev_values, weights, biases, tanh):
 	weighted_values    = np.multiply(prev_values, weights)
 	summed_connections = np.sum(weighted_values, axis=1, dtype=np.float32)
@@ -1509,7 +1513,7 @@ def calculate_values_numba(prev_values, weights, biases, tanh):
 ###########################################################################################################################################
 
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def first_layer_grad_desc_0(values, solutions, prev_values, weights):
 	
 	a1_1 = np.multiply(np.subtract(values, solutions), 2)
@@ -1533,7 +1537,7 @@ def first_layer_grad_desc_0(values, solutions, prev_values, weights):
 
 
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def other_layers_grad_desc_0(values, prev_v_cost, prev_values, weights):
 
 	a1_1 = prev_v_cost
@@ -1565,7 +1569,7 @@ def other_layers_grad_desc_0(values, prev_v_cost, prev_values, weights):
 
 
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def first_layer_grad_desc_1(values, solutions, prev_values, weights):
 	
 	adj_values    = np.divide(np.add(1, np.multiply(0.98,    values)), 2)
